@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="今週末に走る出資馬を1枚の画像にまとめて、Xに投稿できる形で書き出すツール">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>愛馬出走カードメーカー</title>
+<title>出資馬出走カードメーカー</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
@@ -152,7 +152,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
 
 
 <header class="top"><div class="wrap">
-  <h1>愛馬出走カードメーカー</h1>
+  <h1>出資馬出走カードメーカー</h1>
   <p class="lede">今週末に走る出資馬を1枚の画像にまとめて、Xに投稿できる形で書き出します。複数クラブの馬を混ぜて並べられ、クラブを選ぶと勝負服が自動で入ります。競馬場とレース番号を表示し、金曜に枠・馬番を入れるとその横に枠色つきの馬番も並びます。</p>
 </div></header>
 
@@ -632,7 +632,7 @@ async function render(){
   const footH=S.showCount&&hs.length? ts*.75:0; const bottom=H-pad-footH;
 
   if(!hs.length){
-    ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の愛馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
+    ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の出資馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
     S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order,HELD); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
     const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5, VEN=.46;
