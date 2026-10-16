@@ -378,7 +378,7 @@ function splitCols(entries,cols){
 }
 
 function drawVenue(ctx,x,y,w,vh,e,T){
-  const s=Math.round(clamp(vh*.62,10,26)); const base=y+vh*.74;
+  const s=Math.round(clamp(vh*.66,12,32)); const base=y+vh*.76;
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.fillStyle=T.accent; ctx.fillRect(x+2,base-s*.86,Math.max(3,s*.16),s*.92);
   let cx=x+2+Math.max(3,s*.16)+s*.4;
@@ -400,16 +400,20 @@ function drawDay(ctx,x,y,w,dh,e,T){
 function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   ctx.fillStyle=T.row; rr(ctx,x,y,w,h,h*.12); ctx.fill(); ctx.strokeStyle=T.rowLine; ctx.lineWidth=1.5; ctx.stroke();
   const ip=h*.11;
-  const bw=h*.5, bh=h*.62, bx=x+ip, by=y+(h-bh)/2;
+  const showVenue=S.order!=='venue'; // with venue headings, the race block shows only the race number
+  const bw=h*(showVenue?.5:.58), bh=h*.62, bx=x+ip, by=y+(h-bh)/2;
   const hasUma=!!hr.umaban;
   // venue + race number (always shown)
   rr(ctx,bx,by,bw,bh,h*.06); ctx.fillStyle=T.chipBg; ctx.fill();
   ctx.fillStyle=T.chipFg; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-  if(hr.venue){ const f=fit(ctx,hr.venue,900,F.body,bh*.24,bw*.86); ctx.fillText(f.t,bx+bw/2,by+bh*.34); }
-  if(hr.r){ const ns=Math.round(bh*.5); ctx.font=`700 ${ns}px ${F.num}`; const num=String(hr.r); const nw=ctx.measureText(num).width;
-    ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; const rw=ctx.measureText('R').width; const sx0=bx+bw/2-(nw+rw)/2;
-    ctx.textAlign='left'; ctx.font=`700 ${ns}px ${F.num}`; ctx.fillText(num,sx0,by+bh*.86); ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; ctx.fillText('R',sx0+nw+1,by+bh*.86); }
-  if(!hr.venue&&!hr.r){ ctx.textAlign='center'; ctx.font=`700 ${Math.round(bh*.5)}px ${F.num}`; ctx.fillText('–',bx+bw/2,by+bh*.68); }
+  if(showVenue && hr.venue){ const f=fit(ctx,hr.venue,900,F.body,bh*.24,bw*.86); ctx.fillText(f.t,bx+bw/2,by+bh*.34); }
+  if(hr.r){ let ns=Math.round(bh*(showVenue?.5:.62)); const base=by+bh*(showVenue?.86:.74), num=String(hr.r); let nw, rw;
+    const measure=()=>{ ctx.font=`700 ${ns}px ${F.num}`; nw=ctx.measureText(num).width; ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; rw=ctx.measureText('R').width; };
+    const fitW=()=>{ ctx.font=`700 ${ns}px ${F.num}`; const w=ctx.measureText('12').width; ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; return w+ctx.measureText('R').width+1; };
+    while(fitW()>bw*.86 && ns>8) ns--; measure();
+    const sx0=bx+bw/2-(nw+rw+1)/2;
+    ctx.textAlign='left'; ctx.font=`700 ${ns}px ${F.num}`; ctx.fillText(num,sx0,base); ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; ctx.fillText('R',sx0+nw+1,base); }
+  if(!hr.r && !(showVenue&&hr.venue)){ ctx.textAlign='center'; ctx.font=`700 ${Math.round(bh*.5)}px ${F.num}`; ctx.fillText('–',bx+bw/2,by+bh*.68); }
   let nextX=bx+bw;
   if(hasUma||S._anyUma){ // after 枠順確定 (Friday): waku-colored number next to the race block (slot kept on every row for alignment)
     const uw=h*.44, ux=bx+bw+ip*.45, wk=hasUma?WAKU[hr.waku]:null;
@@ -499,7 +503,7 @@ async function render(){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の愛馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
     S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
-    const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5, VEN=.36;
+    const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5, VEN=.46;
     const avail=bottom-top;
     let rowH=Infinity;
     parts.forEach(p=>{ const nH=p.filter(e=>e.t==='horse').length, nD=p.filter(e=>e.t==='day').length, nV=p.filter(e=>e.t==='venue').length; if(nH) rowH=Math.min(rowH, avail/(nH+nH*GAP+nD*DAY+nV*VEN)); });
