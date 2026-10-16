@@ -17,6 +17,6 @@
 
 ## 注意
 
-- 勝負服は各クラブ法人の登録表記（Wikipedia掲載のもの）をもとに描いています。ウイン・YGG・グリーンファーム・ワラウカド・京都サラブレッドクラブは未登録です。
+- 勝負服の画像は Wikipedia の各クラブ法人の記事に掲載されている Wikimedia Commons の画像（CC0）を `silks/` に保存して使っています。取得は GitHub Actions（`.github/workflows/fetch-silks.yml`）で行い、`silks/sources.txt` にファイル名を足すと追加取得されます。
 
 - 写真は自分で撮影したものを使ってください。クラブ提供写真の転載は各クラブの規約を確認してください。

@@ -242,6 +242,7 @@ function md(d){ const p=parseDate(d); return p?`${p.m}/${p.d}(${WD[p.wd]})`:'日
 function sumRace(h){ return [md(h.date), (h.venue||'')+(h.r?h.r+'R':''), h.raceName].filter(Boolean).join(' '); }
 function clubLabel(h){ if(h.clubId==='other') return h.ownerLabel||''; const c=clubById(h.clubId); return c?c.name:''; }
 function silksSpec(h){ if(h.customSilks) return h.customSilks; const c=clubById(h.clubId); return (c&&c.silks)||DEFAULT_SILKS; }
+function silksImgSrc(h){ if(h.customSilks) return ''; const c=clubById(h.clubId); return (c&&c.img)||''; }
 function silksHex(h){ const s=silksSpec(h), C=n=>COLORS[n]||n||'#ffffff'; return {body:C(s.body),pattern:s.pattern,pc:C(s.pc),sleeve:C(s.sleeve),sp:s.sp,spc:C(s.spc)}; }
 
 /* ---------- drawing helpers ---------- */
@@ -304,6 +305,11 @@ function drawSilks(ctx,x,y,s,sk,halo){
   const strokeAll=(w,c)=>{ ctx.lineWidth=w; ctx.strokeStyle=c; sleevePath(ctx,x,y,s,false); ctx.stroke(); sleevePath(ctx,x,y,s,true); ctx.stroke(); bodyPath(ctx,x,y,s); ctx.stroke(); };
   if(halo) strokeAll(s*.05,halo);
   strokeAll(s*.022,outline);
+}
+
+function drawSilksImg(ctx,img,x,y,s,halo){
+  const iw=img.naturalWidth||1, ih=img.naturalHeight||1, k=Math.min(s/iw,s/ih), w=iw*k, h=ih*k, dx=x+(s-w)/2, dy=y+(s-h)/2;
+  ctx.save(); if(halo){ ctx.shadowColor=halo; ctx.shadowBlur=s*.08; } ctx.drawImage(img,dx,dy,w,h); ctx.restore();
 }
 
 /* ---------- background ---------- */
@@ -374,7 +380,9 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
     if(!hr.venue&&!hr.r){ ctx.font=`700 ${Math.round(bh*.5)}px ${F.num}`; ctx.fillText('–',bx+bw/2,by+bh*.68); }
   }
   ctx.textBaseline='alphabetic'; ctx.textAlign='left';
-  const ss=h*.72, sx=bx+bw+ip*.8, sy=y+(h-ss)/2; drawSilks(ctx,sx,sy,ss,silksHex(hr),T.halo);
+  const ss=h*.72, sx=bx+bw+ip*.8, sy=y+(h-ss)/2;
+  const simg=imgs[silksImgSrc(hr)];
+  if(simg) drawSilksImg(ctx,simg,sx,sy,ss,T.halo); else drawSilks(ctx,sx,sy,ss,silksHex(hr),T.halo);
   const tx=sx+ss+ip*.8; let right=x+w-ip;
   const img=hr.photo&&imgs[hr.photo];
   if(img){ const ps=h-ip*1.4, px=right-ps, py=y+(h-ps)/2; const sw=img.naturalWidth, sh=img.naturalHeight, m=Math.min(sw,sh);
@@ -429,6 +437,7 @@ async function render(){
     document.fonts.load(`600 40px "Barlow Condensed"`,'0123456789.–SATSUNMONWEDTHUFRIWEEKENDRUNNERS'), document.fonts.load(`400 40px "Dela Gothic One"`,S.title||'今')
   ]); }catch(e){}
   const imgs={}; await Promise.all(hs.filter(h=>h.photo).map(async h=>{ imgs[h.photo]=await loadImg(h.photo); }));
+  await Promise.all([...new Set(hs.map(silksImgSrc).filter(Boolean))].map(async src=>{ const i=await loadImg(src); if(i&&i.naturalWidth) imgs[src]=i; }));
 
   const cv=$('#cv'); cv.width=W; cv.height=H; const ctx=cv.getContext('2d');
   const pad=Math.round(W*.05);
@@ -472,8 +481,9 @@ function kpill(h){ if(!h.kuchi||h.kuchi==='none') return ''; const l={win:'口�
 function clubNote(h){
   if(h.clubId==='other') return '<p class="club-note">勝負服は下の「勝負服を設定」で入れてください。</p>';
   const c=clubById(h.clubId); if(!c) return '';
-  if(!c.silks && !h.customSilks) return '<p class="club-note warn">このクラブの勝負服はまだ登録されていません。下の「勝負服を設定」で入れてください。</p>';
-  return `<p class="club-note">勝負服：${esc(h.customSilks?'個別に設定中':c.text)}</p>`;
+  if(h.customSilks) return '<p class="club-note">勝負服：個別に設定中</p>';
+  if(!c.img && !c.silks) return '<p class="club-note warn">このクラブの勝負服はまだ登録されていません。下の「勝負服を設定」で入れてください。</p>';
+  return `<p class="club-note">勝負服：${esc(c.text||'クラブの勝負服')}</p>`;
 }
 function cardHTML(h,open){
   const s=silksSpec(h), id=h.id;
@@ -509,7 +519,7 @@ function cardHTML(h,open){
       ${KUCHI.map(([v,l])=>`<label><input type="radio" name="kuchi-${id}" id="k-${v}-${id}" data-f="kuchi" value="${v}"${h.kuchi===v?' checked':''}><span>${l}</span></label>`).join('')}
     </div></fieldset>
     <details class="silks-edit"${h.customSilks?' open':''}>
-      <summary>勝負服を設定</summary>
+      <summary>${clubById(h.clubId)?.img?'勝負服を自分で設定（クラブの勝負服の代わりに使う）':'勝負服を設定'}</summary>
       <div class="g g5">
         <label class="fld"><span>胴の色</span><select id="sb-${id}" data-s="body">${colorOpt(s.body)}</select></label>
         <label class="fld"><span>胴の柄</span><select id="sp-${id}" data-s="pattern">${opt(BODY_PATTERNS,s.pattern)}</select></label>
@@ -518,7 +528,7 @@ function cardHTML(h,open){
         <label class="fld"><span>袖の柄</span><select id="ssp-${id}" data-s="sp">${opt(SLEEVE_PATTERNS,s.sp)}</select></label>
         <label class="fld"><span>袖柄の色</span><select id="sspc-${id}" data-s="spc">${colorOpt(s.spc)}</select></label>
       </div>
-      ${h.customSilks && clubById(h.clubId)?.silks ? '<button type="button" class="ghost" data-act="reset-silks">クラブの勝負服に戻す</button>':''}
+      ${h.customSilks && (clubById(h.clubId)?.img||clubById(h.clubId)?.silks) ? '<button type="button" class="ghost" data-act="reset-silks">クラブの勝負服に戻す</button>':''}
     </details>
     <div class="photo">
       ${h.photo?`<img src="${h.photo}" alt="">`:''}
@@ -534,6 +544,7 @@ function refreshCard(card,h){
   card.querySelector('.sum-race').textContent=[clubLabel(h),sumRace(h)].filter(Boolean).join(' ・ ');
   card.querySelector('.kp').innerHTML=kpill(h);
   const c=card.querySelector('.mini'), x=c.getContext('2d'); x.clearRect(0,0,96,96); drawSilks(x,6,6,84,silksHex(h),null);
+  const src=silksImgSrc(h); if(src) loadImg(src).then(i=>{ if(i&&i.naturalWidth&&silksImgSrc(h)===src){ x.clearRect(0,0,96,96); drawSilksImg(x,i,4,4,88,null); } });
 }
 function renderList(openId){
   const list=$('#list'); const open=new Set([...list.querySelectorAll('details.horse[open]')].map(d=>d.dataset.id)); if(openId) open.add(openId);
