@@ -421,7 +421,8 @@ function drawSilks(ctx,x,y,s,sk,halo){
   if(bodyKey && bodyKey!=='plain'){ ctx.save(); ctx.clip(H); ctx.clip(BODY_CLIP); drawRefPattern(ctx,bodyKey,sk.pc,sk.body); ctx.restore(); ctx.stroke(H); }
   if(sk.sleeve!==sk.body || spKey!==bodyKey){ ctx.lineWidth=lw*.8; ctx.stroke(SEAM); ctx.lineWidth=lw; }   // 袖と胴の境目
   // 襟・ボタン・輪郭
-  for(const it of S.neck){ const p=p2d(it); ctx.fillStyle=it.dark?OUTLINE:sk.body; ctx.fill(p); if(!it.dark){ ctx.lineWidth=lw*.8; ctx.stroke(p); } }
+  const collar = bodyKey==='kyoshi' ? sk.pc : sk.body;   // 鋸歯形は肩から胸が柄の色なので襟も柄の色（見本10・実物とも）
+  for(const it of S.neck){ const p=p2d(it); ctx.fillStyle=it.dark?OUTLINE:collar; ctx.fill(p); if(!it.dark){ ctx.lineWidth=lw*.8; ctx.stroke(p); } }
   ctx.lineWidth=lw;
   if(s>=80){ ctx.fillStyle=OUTLINE; for(const it of S.buttons) ctx.fill(p2d(it)); }
   for(const it of S.outline) ctx.stroke(p2d(it));
