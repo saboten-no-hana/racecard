@@ -10,6 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
 <style>
+/* 画像に使うフォント: IPAexゴシック（IPAフォントライセンスv1.0、fonts/ 参照） */
+@font-face{font-family:"IPAexGothic";src:url("fonts/ipaexg.ttf") format("truetype");font-display:swap}
+</style>
+<link rel="preload" href="fonts/ipaexg.ttf" as="font" type="font/ttf" crossorigin>
+<style>
 /* Layout: editor list (left) + sticky image preview (right); stacks preview-first on phones */
 :root{
   --bg:#eef1ec; --surface:#ffffff; --surface-2:#f5f7f3; --ink:#16201a; --muted:#56645b;
@@ -181,11 +186,9 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 <script src="clubs.js"></script>
 <script>
 (() => {
-const F = {
-  body:'"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",sans-serif',
-  num:'"Barlow Condensed","Zen Kaku Gothic New",sans-serif',
-  display:'"Dela Gothic One","Zen Kaku Gothic New",sans-serif'
-};
+// 画像内の文字はすべて IPAexゴシック（1ウェイトのみのため、太字はブラウザが太らせて表示）
+const IPA='"IPAexGothic","Hiragino Sans","Noto Sans JP",sans-serif';
+const F = { body:IPA, num:IPA, display:IPA };
 const CLUBS = window.CLUBS || [];
 const COLORS = window.SILK_COLORS || {'白':'#ffffff'};
 const COLOR_NAMES = Object.keys(COLORS);
@@ -476,9 +479,7 @@ async function render(){
   const hs=state.horses;
   const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
   try{ await Promise.all([
-    document.fonts.load(`900 40px "Zen Kaku Gothic New"`,txt), document.fonts.load(`700 40px "Zen Kaku Gothic New"`,txt),
-    document.fonts.load(`500 40px "Zen Kaku Gothic New"`,txt), document.fonts.load(`700 40px "Barlow Condensed"`,'0123456789–R'),
-    document.fonts.load(`600 40px "Barlow Condensed"`,'0123456789.–SATSUNMONWEDTHUFRIWEEKENDRUNNERS'), document.fonts.load(`400 40px "Dela Gothic One"`,S.title||'今')
+    document.fonts.load(`40px "IPAexGothic"`,txt+'0123456789.–RSATSUNMONWEDTHUFRIWEEKENDRUNNERS@_')
   ]); }catch(e){}
   const imgs={}; await Promise.all(hs.filter(h=>h.photo).map(async h=>{ imgs[h.photo]=await loadImg(h.photo); }));
   await Promise.all([...new Set(hs.map(silksImgSrc).filter(Boolean))].map(async src=>{ const i=await loadImg(src); if(i&&i.naturalWidth) imgs[src]=i; }));

@@ -1,0 +1,33 @@
+name: フォントのライセンス文書を取得
+# IPAexゴシックの再配布にはライセンス文書の同梱が必要なため、CTAN（公式配布物のミラー）から取得して fonts/ に保存する。
+# あわせて fonts/ipaexg.ttf が公式配布物と同一かを確認する。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - fonts/ipaexg.ttf
+      - .github/workflows/fetch-font-license.yml
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download license and readme
+        run: |
+          base=https://mirrors.ctan.org/fonts/ipaex
+          curl -fsSL --retry 3 -o fonts/IPA_Font_License_Agreement_v1.0.txt "$base/IPA_Font_License_Agreement_v1.0.txt"
+          curl -fsSL --retry 3 -o fonts/Readme_IPAexfont00401.txt "$base/Readme_IPAexfont00401.txt"
+          curl -fsSL --retry 3 -o /tmp/ipaexg.ttf "$base/ipaexg.ttf"
+          echo "official : $(sha256sum /tmp/ipaexg.ttf)"
+          echo "committed: $(sha256sum fonts/ipaexg.ttf)"
+          cmp /tmp/ipaexg.ttf fonts/ipaexg.ttf && echo "fonts/ipaexg.ttf は公式配布物と同一です"
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add fonts/*.txt
+          git diff --cached --quiet || git commit -m "IPAexゴシックのライセンス文書を取得"
+          git push
