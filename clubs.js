@@ -14,12 +14,13 @@
   勝負服は会員提供の画像から判定して手描き（胴 赤・白鋸歯形、袖 白・赤二本輪）。text は JRA の表記順に沿って組んだもの。
   ゴールドホースクラブ（ゴールドレーシング）はほぼ休眠のため入れていない。
 
-  柄の値（JRA の標示に沿う。index.html の BODY_PATTERNS / SLEEVE_PATTERNS と同じ）:
+  柄の値（JRA の標示。形は silks-shapes.js＝Wikipedia「勝負服 (競馬)」の参考画像。index.html の BODY_PATTERNS / SLEEVE_PATTERNS と同じ）:
           胴: plain 無地 / wa1〜wa3 一〜三本輪 / ichimonji 一文字（胴と袖） / obi 帯 / yamagatawa1 山形一本輪 /
-              yamagata 山形二本輪 / yamagata1 山形一文字（胴と袖） / hishiyamagata 菱山形 / kyoshi 鋸歯形（胴と袖） /
-              tasuki 襷 / jujitasuki 十字襷 / tate 縦縞 / check 格子 / genroku 元禄 / diamond ダイヤモンド /
-              uroko うろこ / igeta 井桁絣 / dots 玉霰 / stars 星散 / janome 蛇目散 / zenigata 銭形散
-          袖: plain / wa1〜wa3 / yamagatawa1 / yamagata / tate / check / genroku / diamond / uroko / igeta / dots / stars / janome / zenigata
+              yamagata 山形二本輪 / yamagata3 山形三本輪 / yamagata1 山形一文字（胴と袖） / yamagataobi 山形帯 /
+              hishiyamagata 菱山形 / kyoshi 鋸歯形（胴と袖） / tasuki 襷 / jujitasuki 十字襷 / tate 縦縞 / check 格子 /
+              genroku 元禄 / diamond ダイヤモンド / uroko うろこ / igeta 井桁絣 / dots 玉霰 / stars 星散 / janome 蛇目散 / zenigata 銭形散
+          袖: plain / wa1〜wa3 / yamagatawa1 / yamagata / yamagata3 / hishiyamagata / tate / check / genroku / diamond / uroko /
+              igeta / dots / stars / janome / zenigata
 */
 window.CLUBS = [
   {id:'carrot', img:'silks/Owner_Carrot_Farm.svg',   name:'キャロットクラブ',               owner:'キャロットファーム',             text:'緑、白二本輪、白袖赤一本輪',   silks:{body:'緑',pattern:'wa2',pc:'白',sleeve:'白',sp:'wa1',spc:'赤'}},
