@@ -45,6 +45,14 @@ h1{font-family:var(--f-display);font-weight:400;font-size:clamp(24px,4vw,34px);l
 .out-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .hint{font-size:13px;color:var(--muted);margin:0}
 .status{font-size:13px;color:var(--accent);min-height:1.2em}
+dialog.guide{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:18px;width:min(440px,calc(100vw - 32px));box-sizing:border-box}
+dialog.guide::backdrop{background:rgba(0,0,0,.45)}
+dialog.guide h3{margin:0 0 10px;font-size:17px}
+dialog.guide ol{margin:0 0 12px;padding-left:1.4em;display:grid;gap:6px;font-size:15px;line-height:1.55}
+dialog.guide kbd{font:inherit;font-weight:700;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--surface-2)}
+dialog.guide .note2{font-size:13px;color:var(--muted);margin:0 0 12px}
+dialog.guide .skip{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:14px}
+dialog.guide .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px}
 .panel h2,.editor-head h2{font-size:13px;letter-spacing:.12em;font-weight:700;color:var(--muted);margin:0}
@@ -199,7 +207,14 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
       <button id="post" type="button">Xに投稿</button>
       <span class="status" id="status" role="status"></span>
     </div>
-    <p class="hint">「Xに投稿」: スマホでは共有メニューが開くので X を選ぶと画像つきの投稿画面になります。PCでは画像をコピーしてXの投稿画面を開くので、本文欄に貼り付け（Ctrl+V／⌘V）してください。</p>
+    <p class="hint" id="post-hint"></p>
+    <dialog class="guide" id="post-guide" aria-labelledby="pg-h">
+      <h3 id="pg-h">Xに投稿する</h3>
+      <ol id="pg-steps"></ol>
+      <p class="note2" id="pg-note"></p>
+      <label class="skip"><input type="checkbox" id="pg-skip"> 次からこの説明を出さない</label>
+      <div class="acts"><button type="button" class="ghost" id="pg-cancel">やめる</button><button type="button" class="primary" id="pg-go"></button></div>
+    </dialog>
     <div class="panel">
       <h2>画像の設定</h2>
       <div class="g g2">
@@ -799,23 +814,42 @@ $('#dl').addEventListener('click',downloadPng);
    PC は画像をクリップボードに入れてから本文入りの投稿画面を開く（貼り付けてもらう）。サーバーも X の API も使わない */
 function postText(){ const S=state.settings; return [S.title, S.postText].map(t=>(t||'').trim()).filter(Boolean).join('\n'); }
 function openIntent(){ const w=window.open('https://x.com/intent/post?text='+encodeURIComponent(postText()),'_blank'); if(w) try{ w.opener=null; }catch(e){} return w; }
-$('#post').addEventListener('click',async()=>{ const st=$('#status');
-  if(!$('#out').src){ st.textContent='画像の準備中です。少し待ってからもう一度押してください'; return; }
-  const blobP=pngBlob?Promise.resolve(pngBlob):new Promise(res=>$('#cv').toBlob(res,'image/png'));
-  const mobile=matchMedia('(pointer: coarse)').matches;
-  if(mobile && navigator.canShare){
-    try{
-      const file=new File([pngBlob||await blobP],pngName(),{type:'image/png'});
-      if(navigator.canShare({files:[file]})){ await navigator.share({files:[file],text:postText()}); st.textContent=''; return; }
-    }catch(e){ if(e&&e.name==='AbortError') return; }
-  }
-  let copied=false;
-  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':blobP})]); copied=true; }catch(e){}
-  if(!copied) downloadPng();
-  const w=openIntent();
+const isMobile=()=>matchMedia('(pointer: coarse)').matches;
+const isMac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
+const PASTE_KEY=isMac?'<kbd>⌘</kbd>＋<kbd>V</kbd>':'<kbd>Ctrl</kbd>＋<kbd>V</kbd>';
+$('#post-hint').innerHTML = isMobile()
+  ? '「Xに投稿」を押すと共有メニューが開きます。<b>X</b> を選ぶと、画像と本文が入った投稿画面になります。'
+  : '「Xに投稿」を押すと画像をコピーしてXの投稿画面を開きます。本文欄をクリックして '+PASTE_KEY+' で画像を貼り付けてください。';
+function canShareFile(){ if(!isMobile()||!navigator.canShare||!pngBlob) return false; try{ return navigator.canShare({files:[new File([pngBlob],pngName(),{type:'image/png'})]}); }catch(e){ return false; } }
+async function doShare(){ const st=$('#status');
+  try{ await navigator.share({files:[new File([pngBlob],pngName(),{type:'image/png'})],text:postText()}); st.textContent=''; }
+  catch(e){ if(!(e&&e.name==='AbortError')) st.textContent='共有メニューを開けませんでした。「画像を保存」してXアプリから添付してください'; } }
+function doIntent(mode){ const w=openIntent(), st=$('#status');
   st.textContent = !w ? 'Xの投稿画面を開けませんでした（ポップアップがブロックされた可能性があります）'
-    : copied ? '画像をコピーしました。Xの投稿画面の本文欄に貼り付けてください'
-    : '画像を保存しました。Xの投稿画面で画像を添付してください';
+    : mode==='paste' ? 'Xの投稿画面を開きました。本文欄をクリックして貼り付けてください'
+    : 'Xの投稿画面を開きました。保存した画像を添付してください'; }
+/* 説明ダイアログ: steps を見せてから、ボタン（新しいタップ）で共有メニュー／Xを開く */
+function showGuide(mode){ const dlg=$('#post-guide');
+  const steps={
+    share:['下の「共有メニューを開く」を押す','共有メニューの中から <b>X</b> を選ぶ（見当たらなければ「その他」や横スクロールで探す）','画像と本文が入った投稿画面になるので、確認して投稿'],
+    paste:['画像をコピーしました','下の「Xを開く」を押すと、本文入りの投稿画面が開きます','本文欄をクリックして '+PASTE_KEY+' で画像を貼り付け','確認して投稿'],
+    file:['このブラウザではコピーできないので、画像を保存しました','下の「Xを開く」を押すと、本文入りの投稿画面が開きます','画像ボタン（🖼）から保存した画像を添付','確認して投稿']}[mode];
+  $('#pg-steps').innerHTML=steps.map(t=>`<li>${t}</li>`).join('');
+  $('#pg-note').textContent = mode==='share' ? 'X を選んでも本文が入らない場合は、本文を手で入力してください。' : 'Xにログインしていない場合は、先にログインしてください。';
+  $('#pg-go').textContent = mode==='share' ? '共有メニューを開く' : 'Xを開く';
+  $('#pg-skip').checked=false;
+  dlg.dataset.mode=mode; dlg.showModal(); $('#pg-go').focus(); }
+$('#pg-cancel').addEventListener('click',()=>$('#post-guide').close());
+$('#pg-go').addEventListener('click',()=>{ const dlg=$('#post-guide'), mode=dlg.dataset.mode;
+  if($('#pg-skip').checked){ state.settings.skipPostGuide=true; save(); }
+  dlg.close(); if(mode==='share') doShare(); else doIntent(mode); });
+$('#post').addEventListener('click',async()=>{ const st=$('#status'); st.textContent='';
+  if(!$('#out').src||!pngBlob){ st.textContent='画像の準備中です。少し待ってからもう一度押してください'; return; }
+  const skip=state.settings.skipPostGuide;
+  if(canShareFile()){ if(skip) doShare(); else showGuide('share'); return; }
+  let mode='paste';
+  try{ await navigator.clipboard.write([new ClipboardItem({'image/png':pngBlob})]); }catch(e){ mode='file'; downloadPng(); }
+  if(skip) doIntent(mode); else showGuide(mode);
 });
 
 /* ---------- 今週の出走馬（data/races.json） ---------- */
