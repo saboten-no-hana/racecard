@@ -38,7 +38,7 @@ h1{font-family:var(--f-display);font-weight:400;font-size:clamp(24px,4vw,34px);l
 .layout{display:grid;gap:24px;grid-template-columns:minmax(0,1fr) minmax(0,520px);align-items:start;padding-block:8px 48px}
 .editor{min-width:0}
 .preview{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);display:grid;gap:12px;min-width:0}
-@media (max-width:920px){.layout{grid-template-columns:minmax(0,1fr)}.preview{position:static;order:-1}}
+@media (max-width:920px){.layout{grid-template-columns:minmax(0,1fr)}.preview{position:static}}
 
 .frame{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;display:grid;place-items:center;min-height:200px}
 .frame img{display:block;width:100%;height:auto;max-height:72vh;object-fit:contain;border-radius:6px}
@@ -108,6 +108,28 @@ details.silks-edit>summary{cursor:pointer;padding:10px 0;font-size:13px;font-wei
 details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 .club-note{font-size:13px;color:var(--muted);margin:0}
 .club-note.warn{color:var(--danger)}
+.picker{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;margin-bottom:22px}
+.picker-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px 12px;flex-wrap:wrap}
+.picker-head h2{font-size:13px;letter-spacing:.12em;font-weight:700;color:var(--muted);margin:0}
+.picker-head .upd{font-size:12px;color:var(--muted)}
+.picker-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+@media (max-width:560px){.picker-filters{grid-template-columns:minmax(0,1fr)}}
+.banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--gold);border-radius:10px;padding:8px 12px;font-size:14px}
+.banner p{margin:0;min-width:0}
+.plist{display:grid;gap:2px;max-height:min(52vh,460px);overflow:auto;border-top:1px solid var(--line);padding-top:6px;overscroll-behavior:contain}
+.pday{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.06em;padding:8px 2px 2px;position:sticky;top:0;background:var(--surface)}
+.prow{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow img{width:36px;height:36px;object-fit:contain}
+.prow .pn{font-weight:900;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .pr{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.prow .pr b{color:var(--ink)}
+.star{border:0;background:transparent;padding:4px 6px;font-size:20px;line-height:1;color:var(--muted)}
+.star[aria-pressed="true"]{color:var(--gold)}
+.prow button.add{padding:6px 12px}
+.prow button.add[disabled]{opacity:.6;cursor:default}
+.pempty{font-size:13px;color:var(--muted);margin:6px 0}
+.scr{color:var(--danger);font-weight:700}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 </style>
 </head>
@@ -121,12 +143,23 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 
 <main class="wrap layout">
   <section class="editor" aria-label="出走馬の入力">
+    <section class="picker" id="picker" aria-label="今週の出走馬から選ぶ">
+      <div class="picker-head"><h2>今週の出走馬から選ぶ</h2><span class="upd" id="p-upd">出馬表を読み込み中…</span></div>
+      <div id="p-banners"></div>
+      <div class="picker-filters">
+        <label class="fld"><span>クラブ</span><select id="p-club"></select></label>
+        <label class="fld"><span>馬名で探す</span><input type="text" id="p-q" placeholder="カタカナの一部でも可" autocomplete="off"></label>
+      </div>
+      <div class="checks"><label><input type="checkbox" id="p-mine">★ 登録した出資馬だけ表示</label></div>
+      <div class="plist" id="p-list"></div>
+      <p class="hint">JRAの出馬表から、一口クラブ名義の馬を自動で集めています。木曜16時すぎに出走確定（馬番なし）、レース前日10時すぎに枠・馬番が入ります（反映まで30分ほどかかります）。★を付けた馬は、次の週から一覧の先頭に出て、まとめて追加できます。</p>
+    </section>
     <div class="editor-head">
       <h2>出走馬<b id="count">0</b></h2>
       <button class="primary" id="add" type="button">＋ 馬を追加</button>
     </div>
     <div id="list"></div>
-    <p class="note">最初に入っているのは架空のサンプル馬です。勝負服は各クラブの登録内容をもとに描いていますが、違っていたら「勝負服を設定」で直せます。写真は自分で撮影したものを使ってください（クラブ提供写真の転載は各クラブの規約を確認）。</p>
+    <p class="note">最初に入っているのは架空のサンプル馬で、今週の出走馬を追加すると消えます。勝負服は各クラブの登録内容をもとに描いていますが、違っていたら「勝負服を設定」で直せます。写真は自分で撮影したものを使ってください（クラブ提供写真の転載は各クラブの規約を確認）。</p>
     <div class="foot-actions">
       <button class="ghost" id="clear" type="button">すべて消す</button>
       <button class="ghost" id="sample" type="button">サンプルに戻す</button>
@@ -222,7 +255,7 @@ function weekendDates(){ // this weekend if today is Sat/Sun, otherwise the comi
 }
 function sample(){
   const [sat,sun]=weekendDates();
-  const H=(o)=>({id:uid(),name:'',clubId:'',ownerLabel:'',date:sat,venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null,...o});
+  const H=(o)=>({id:uid(),isSample:true,name:'',clubId:'',ownerLabel:'',date:sat,venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null,...o});
   return {
     settings:{title:'今週末の出走予定',handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
     horses:[
@@ -239,6 +272,7 @@ let state;
 try{ state = JSON.parse(localStorage.getItem(KEY)); }catch(e){ state=null; }
 if(!state || !Array.isArray(state.horses)) state = sample();
 state.settings = Object.assign(sample().settings, state.settings||{});
+state.myHorses = Array.isArray(state.myHorses)?state.myHorses:[];
 
 let saveT;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ try{ localStorage.setItem(KEY, JSON.stringify({...state,horses:state.horses.map(h=>({...h,photo:''}))})); }catch(_){} } },300); }
@@ -503,7 +537,7 @@ async function render(){
   if(!hs.length){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の愛馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
-    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
+    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order,HELD); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
     const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5, VEN=.46;
     const avail=bottom-top;
     let rowH=Infinity;
@@ -646,7 +680,82 @@ $('#copy').addEventListener('click',()=>{ const st=$('#status');
 });
 $('#dl').addEventListener('click',()=>{ const a=document.createElement('a'); const d=state.horses.map(h=>h.date).filter(Boolean).sort()[0]||'runners'; a.download=`shussou_${d}.png`; a.href=$('#out').src; document.body.appendChild(a); a.click(); a.remove(); });
 
-syncSettings(); renderList(); (document.fonts?document.fonts.ready:Promise.resolve()).then(schedule);
+/* ---------- 今週の出走馬（data/races.json） ---------- */
+let RACES=null, HELD=null;
+const isMine=id=>state.myHorses.includes(id);
+function raceLabel(x){ return x.raceName+(x.grade?`（${x.grade}）`:''); }
+function fromData(x){ return {id:uid(),horseId:x.horseId,name:x.name,clubId:x.clubId,ownerLabel:'',date:x.date,venue:x.venue,r:String(x.r),time:x.time,
+  raceName:raceLabel(x),surface:x.surface||'芝',dist:String(x.dist||''),jockey:x.jockey,waku:x.waku,umaban:x.umaban,kuchi:'none',photo:'',customSilks:null}; }
+const inList=x=>state.horses.some(h=>h.horseId===x.horseId&&h.date===x.date);
+function addFromData(xs){
+  if(!xs.length) return;
+  state.horses=state.horses.filter(h=>!h.isSample);
+  xs.forEach(x=>{ if(!inList(x)) state.horses.push(fromData(x)); if(!isMine(x.horseId)) state.myHorses.push(x.horseId); });
+  renderList(); renderPicker(); schedule(); save();
+}
+function syncFromData(){ // 追加済みの馬を最新の出馬表で更新（枠・馬番・騎手など）
+  if(!RACES) return 0; let n=0;
+  state.horses.forEach(h=>{ if(!h.horseId) return; const x=RACES.horses.find(y=>y.horseId===h.horseId&&y.date===h.date); if(!x) return;
+    const nv=fromData(x); let ch=false;
+    ['venue','r','time','raceName','surface','dist','jockey','waku','umaban'].forEach(k=>{ if(nv[k]&&h[k]!==nv[k]){ h[k]=nv[k]; ch=true; } });
+    if(ch) n++; });
+  return n;
+}
+function renderPicker(){
+  const L=$('#p-list'), B=$('#p-banners');
+  if(!RACES){ return; }
+  const club=$('#p-club').value, q=($('#p-q').value||'').trim(), mine=$('#p-mine').checked;
+  const kata=s=>s.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
+  let xs=RACES.horses.filter(x=>(!club||x.clubId===club)&&(!q||x.name.includes(kata(q)))&&(!mine||isMine(x.horseId)));
+  xs=[...xs.filter(x=>isMine(x.horseId)),...xs.filter(x=>!isMine(x.horseId))];
+  xs.sort((a,b)=>a.date.localeCompare(b.date)); // 日付ごと（同じ日の中は★→出馬表順）
+  let html='', cur='';
+  xs.forEach(x=>{
+    if(x.date!==cur){ cur=x.date; html+=`<div class="pday">${esc(md(x.date))}</div>`; }
+    const c=clubById(x.clubId), added=inList(x), scr=x.status?`<span class="scr">${esc(x.status)}</span> `:'';
+    const num=x.umaban?` <b>${esc(x.umaban)}番</b>`:'';
+    html+=`<div class="prow" data-k="${esc(x.key)}">${c&&c.img?`<img src="${esc(c.img)}" alt="">`:'<span></span>'}
+      <div style="min-width:0"><div class="pn">${scr}${esc(x.name)}</div><div class="pr">${esc(x.venue)}${x.r}R${num}　${esc(raceLabel(x))}　${esc(x.jockey)}　${esc(c?c.name:'')}</div></div>
+      <button type="button" class="star" data-act="star" aria-pressed="${isMine(x.horseId)}" aria-label="出資馬として登録" title="出資馬として登録">${isMine(x.horseId)?'★':'☆'}</button>
+      <button type="button" class="add" data-act="add"${added?' disabled':''}>${added?'追加済み':'追加'}</button></div>`;
+  });
+  L.innerHTML=html||'<p class="pempty">条件に合う馬はいません。</p>';
+  // banners
+  const firstDate=(RACES.days[0]||{}).date||'';
+  const mineNot=RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status);
+  const old=state.horses.filter(h=>!h.isSample&&h.date&&firstDate&&h.date<firstDate);
+  let b='';
+  if(mineNot.length) b+=`<div class="banner"><p>★を付けた出資馬が今週 <b>${mineNot.length}頭</b> 出走します：${esc(mineNot.map(x=>x.name).join('、'))}</p><button type="button" class="primary" data-act="add-mine">まとめて追加</button></div>`;
+  if(old.length) b+=`<div class="banner"><p>先週までの馬が <b>${old.length}頭</b> 残っています。</p><button type="button" data-act="del-old">消す</button></div>`;
+  B.innerHTML=b;
+}
+$('#picker').addEventListener('click',e=>{ const b=e.target.closest('button[data-act]'); if(!b||!RACES) return; const a=b.dataset.act;
+  const row=b.closest('.prow'), x=row&&RACES.horses.find(y=>y.key===row.dataset.k);
+  if(a==='add'&&x) addFromData([x]);
+  if(a==='star'&&x){ state.myHorses=isMine(x.horseId)?state.myHorses.filter(i=>i!==x.horseId):[...state.myHorses,x.horseId]; save(); renderPicker(); }
+  if(a==='add-mine') addFromData(RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status));
+  if(a==='del-old'){ const f=(RACES.days[0]||{}).date; state.horses=state.horses.filter(h=>h.isSample||!h.date||h.date>=f); renderList(); renderPicker(); schedule(); save(); }
+});
+['#p-club','#p-q','#p-mine'].forEach(s=>$(s).addEventListener(s==='#p-q'?'input':'change',renderPicker));
+async function loadRaces(){
+  const U=$('#p-upd');
+  try{
+    const r=await fetch('data/races.json',{cache:'no-cache'}); if(!r.ok) throw new Error(r.status);
+    RACES=await r.json(); HELD={}; RACES.days.forEach(d=>HELD[d.date]=d.venues);
+    const t=new Date(RACES.updated); U.textContent=`JRA出馬表 ${t.getMonth()+1}/${t.getDate()} ${pad2(t.getHours())}:${pad2(t.getMinutes())} 更新・${RACES.horses.length}頭`;
+    const counts={}; RACES.horses.forEach(x=>counts[x.clubId]=(counts[x.clubId]||0)+1);
+    $('#p-club').innerHTML=`<option value="">すべてのクラブ（${RACES.horses.length}頭）</option>`+CLUBS.filter(c=>counts[c.id]).map(c=>`<option value="${c.id}">${esc(c.name)}（${counts[c.id]}頭）</option>`).join('');
+    try{ const v=localStorage.getItem('racecard.pclub'); if(v&&counts[v]) $('#p-club').value=v; }catch(e){}
+    const n=syncFromData(); if(n){ renderList(); save(); U.textContent+=`／出走馬${n}頭を最新の内容に更新`; }
+    renderPicker(); schedule();
+  }catch(e){
+    U.textContent='';
+    $('#p-list').innerHTML='<p class="pempty">今週の出馬表データを読み込めませんでした。「＋ 馬を追加」から手入力できます。</p>';
+  }
+}
+$('#p-club').addEventListener('change',e=>{ try{ localStorage.setItem('racecard.pclub',e.target.value); }catch(_){} });
+
+syncSettings(); renderList(); (document.fonts?document.fonts.ready:Promise.resolve()).then(schedule); loadRaces();
 })();
 </script>
 

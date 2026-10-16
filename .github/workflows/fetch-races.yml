@@ -1,0 +1,37 @@
+name: 出馬表の取得
+# JRAの出馬表から一口クラブ名義の出走馬を集めて data/races.json を更新する。
+#   木曜16時すぎ: 出走確定（馬番なし）／レース前日10時すぎ: 枠番・馬番つき
+# GitHub の定期実行は数分〜数十分遅れることがある。時刻はUTC（日本時間 = UTC+9）。
+on:
+  schedule:
+    - cron: '40 7 * * 4'   # 木 16:40 JST
+    - cron: '10 9 * * 4'   # 木 18:10 JST（取りこぼし対策）
+    - cron: '45 1 * * 5'   # 金 10:45 JST（土曜の枠順）
+    - cron: '45 1 * * 6'   # 土 10:45 JST（日曜の枠順）
+    - cron: '45 1 * * 0'   # 日 10:45 JST（月曜開催がある週の枠順）
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: fetch-races
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install beautifulsoup4==4.12.3
+      - run: python3 tools/fetch_races.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/races.json data/cache.json
+          if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "出馬表を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          git pull --rebase -q origin main
+          git push
