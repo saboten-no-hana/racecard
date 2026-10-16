@@ -114,6 +114,8 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 .picker-head .upd{font-size:12px;color:var(--muted)}
 .picker-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
 @media (max-width:560px){.picker-filters{grid-template-columns:minmax(0,1fr)}}
+#p-banners:empty{display:none}
+#p-banners{display:grid;gap:8px}
 .banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--gold);border-radius:10px;padding:8px 12px;font-size:14px}
 .banner p{margin:0;min-width:0}
 .plist{display:grid;gap:2px;max-height:min(52vh,460px);overflow:auto;border-top:1px solid var(--line);padding-top:6px;overscroll-behavior:contain}
@@ -130,6 +132,19 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 .prow button.add[disabled]{opacity:.6;cursor:default}
 .pempty{font-size:13px;color:var(--muted);margin:6px 0}
 .scr{color:var(--danger);font-weight:700}
+details.transfer{border:1px dashed var(--line);border-radius:10px;padding:0 12px}
+details.transfer>summary{cursor:pointer;padding:10px 0;font-size:13px;font-weight:700;color:var(--muted)}
+details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
+.row-inline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row-inline input{flex:1 1 220px}
+.mylist{display:flex;flex-wrap:wrap;gap:6px}
+.mylist span{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px;background:var(--surface-2)}
+.mylist button{border:0;background:transparent;padding:2px 6px;font-size:14px;color:var(--muted)}
+.tstatus{font-size:13px;color:var(--accent);min-height:1.2em;margin:0}
+.custom-box{display:grid;gap:10px;border:1px dashed var(--line);border-radius:10px;padding:12px}
+.custom-box .g3c{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.custom-box input[type=range]{width:100%;accent-color:var(--accent)}
+.bgthumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 </style>
 </head>
@@ -151,6 +166,16 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
         <label class="fld"><span>馬名で探す</span><input type="text" id="p-q" placeholder="カタカナの一部でも可" autocomplete="off"></label>
       </div>
       <div class="checks"><label><input type="checkbox" id="p-mine">★ 登録した出資馬だけ表示</label></div>
+      <details class="transfer" id="transfer">
+        <summary>★を他の端末に引き継ぐ（<span id="t-count">0</span>頭）</summary>
+        <div class="mylist" id="t-list"></div>
+        <label class="fld"><span>この端末の引き継ぎコード</span>
+          <div class="row-inline"><input type="text" id="t-code" readonly><button type="button" id="t-copy">コードをコピー</button><button type="button" id="t-link">リンクをコピー</button></div></label>
+        <label class="fld"><span>別の端末のコードを読み込む（今の★に追加されます）</span>
+          <div class="row-inline"><input type="text" id="t-in" placeholder="RC1: から始まるコード" autocomplete="off"><button type="button" class="primary" id="t-load">読み込む</button></div></label>
+        <p class="tstatus" id="t-status" role="status"></p>
+        <p class="hint">★はこのブラウザの中にだけ保存されています。スマホとPCなど別の端末で使うときは、コードかリンクを自分宛てに送って、もう一方の端末で読み込んでください。</p>
+      </details>
       <div class="plist" id="p-list"></div>
       <p class="hint">JRAの出馬表から、一口クラブ名義の馬を自動で集めています。木曜16時すぎに出走確定（馬番なし）、レース前日10時すぎに枠・馬番が入ります（反映まで30分ほどかかります）。★を付けた馬は、次に出走する週に「まとめて追加」で一度に入れられます。</p>
     </section>
@@ -186,8 +211,27 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
           <label><input type="radio" name="theme" value="dirt"><span>ダート</span></label>
           <label><input type="radio" name="theme" value="night"><span>ナイター</span></label>
           <label><input type="radio" name="theme" value="paper"><span>白</span></label>
+          <label><input type="radio" name="theme" value="gold"><span>G1</span></label>
+          <label><input type="radio" name="theme" value="sakura"><span>桜</span></label>
+          <label><input type="radio" name="theme" value="summer"><span>夏</span></label>
+          <label><input type="radio" name="theme" value="snow"><span>雪</span></label>
+          <label><input type="radio" name="theme" value="custom"><span>カスタム</span></label>
         </div>
       </fieldset>
+      <div class="custom-box" id="custom-box" hidden>
+        <div class="g3c">
+          <label class="fld"><span>背景色</span><input type="color" id="c-bg"></label>
+          <label class="fld"><span>アクセント色</span><input type="color" id="c-accent"></label>
+        </div>
+        <div class="photo">
+          <img class="bgthumb" id="c-thumb" alt="" hidden>
+          <label class="btn" for="c-img" id="c-img-label">背景画像を選ぶ</label>
+          <input class="vh" type="file" id="c-img" accept="image/*">
+          <button type="button" class="ghost" id="c-img-del" hidden>画像を外す</button>
+        </div>
+        <label class="fld" id="c-dim-wrap" hidden><span>画像の暗さ <b id="c-dim-val"></b></span><input type="range" id="c-dim" min="0" max="85" step="5"></label>
+        <p class="hint">背景画像は文字が読みやすいように暗くして使います。自分で撮影した写真などを使ってください。</p>
+      </div>
       <fieldset class="fld"><legend>サイズ</legend>
         <div class="seg" id="s-size">
           <label><input type="radio" name="size" value="4:5"><span>縦長 4:5</span></label>
@@ -242,8 +286,28 @@ const THEMES = {
   turf:{bg:'#123d2b',bg2:'#0b2a1d',fg:'#f4efe1',sub:'#b7c8b6',accent:'#e2bd5c',accentInk:'#1c1606',row:'rgba(255,255,255,0.075)',rowLine:'rgba(255,255,255,0.10)',chipBg:'rgba(255,255,255,0.14)',chipFg:'#f4efe1',sat:'#9cc4ff',sun:'#ff9c8f',halo:'rgba(255,255,255,0.45)'},
   dirt:{bg:'#caa77b',bg2:'#b38c5b',fg:'#2b1d10',sub:'#5b4228',accent:'#7a2e1a',accentInk:'#fff4e6',row:'rgba(255,248,236,0.5)',rowLine:'rgba(60,35,15,0.16)',chipBg:'#2b1d10',chipFg:'#f6ead8',sat:'#1d4f9e',sun:'#a8261b',halo:null},
   night:{bg:'#101a3a',bg2:'#060a19',fg:'#eef1fa',sub:'#a5aecb',accent:'#f2c94c',accentInk:'#1a1300',row:'rgba(255,255,255,0.06)',rowLine:'rgba(255,255,255,0.09)',chipBg:'rgba(242,201,76,0.18)',chipFg:'#f6dc8c',sat:'#8fb4ff',sun:'#ff8f8f',halo:'rgba(255,255,255,0.45)'},
-  paper:{bg:'#fbfaf6',bg2:'#f1efe8',fg:'#16181d',sub:'#5c616b',accent:'#c62828',accentInk:'#ffffff',row:'#ffffff',rowLine:'#e0ddd3',chipBg:'#16181d',chipFg:'#ffffff',sat:'#1f56c4',sun:'#c62828',halo:null}
+  paper:{bg:'#fbfaf6',bg2:'#f1efe8',fg:'#16181d',sub:'#5c616b',accent:'#c62828',accentInk:'#ffffff',row:'#ffffff',rowLine:'#e0ddd3',chipBg:'#16181d',chipFg:'#ffffff',sat:'#1f56c4',sun:'#c62828',halo:null},
+  gold:{bg:'#12100c',bg2:'#030302',fg:'#f7f0de',sub:'#bdb29a',accent:'#d6b25e',accentInk:'#1a1405',row:'rgba(214,178,94,0.07)',rowLine:'rgba(214,178,94,0.24)',chipBg:'rgba(214,178,94,0.16)',chipFg:'#f1dca4',sat:'#9cc4ff',sun:'#ff9c8f',halo:'rgba(255,255,255,0.4)'},
+  sakura:{bg:'#fbeef2',bg2:'#f5dbe4',fg:'#3b1f2b',sub:'#7a5563',accent:'#c8436f',accentInk:'#ffffff',row:'rgba(255,255,255,0.66)',rowLine:'rgba(120,40,70,0.14)',chipBg:'#3b1f2b',chipFg:'#ffffff',sat:'#2f5fb3',sun:'#c8436f',halo:null},
+  summer:{bg:'#0b6a98',bg2:'#063f5e',fg:'#f4fbff',sub:'#b9dcee',accent:'#ffd25e',accentInk:'#1d1600',row:'rgba(255,255,255,0.09)',rowLine:'rgba(255,255,255,0.15)',chipBg:'rgba(255,255,255,0.17)',chipFg:'#f4fbff',sat:'#d3e8ff',sun:'#ffb4a8',halo:'rgba(255,255,255,0.45)'},
+  snow:{bg:'#edf3f8',bg2:'#d9e5f0',fg:'#142338',sub:'#4f6178',accent:'#2c6cb0',accentInk:'#ffffff',row:'rgba(255,255,255,0.72)',rowLine:'rgba(20,35,56,0.12)',chipBg:'#142338',chipFg:'#ffffff',sat:'#2c6cb0',sun:'#c0392b',halo:null}
 };
+/* カスタム背景: 背景色・アクセント色・背景画像から配色を作る */
+const DEFAULT_CUSTOM={bg:'#1d3557',accent:'#f4a261',image:'',dim:45};
+function hexRgb(h){ h=(h||'#000').replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16)||0; return [n>>16&255,n>>8&255,n&255]; }
+function rgbHex(r,g,b){ return '#'+[r,g,b].map(v=>Math.round(clamp(v,0,255)).toString(16).padStart(2,'0')).join(''); }
+function mix(a,b,t){ const A=hexRgb(a),B=hexRgb(b); return rgbHex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t); }
+function luminance(h){ const c=hexRgb(h).map(v=>{ v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4); }); return .2126*c[0]+.7152*c[1]+.0722*c[2]; }
+function customTheme(c){
+  c={...DEFAULT_CUSTOM,...(c||{})};
+  const dark=!!c.image || luminance(c.bg)<.4;
+  const fg=dark?'#f6f4ee':'#17191d', base=c.image?'#000000':c.bg;
+  const acc=c.accent, accInk=luminance(acc)>.45?'#141414':'#ffffff';
+  return { bg:c.bg, bg2:mix(c.bg,'#000000',dark?.45:.08), fg, sub:mix(fg,base,dark?.3:.38), accent:acc, accentInk:accInk,
+    row:dark?'rgba(255,255,255,0.08)':'rgba(255,255,255,0.7)', rowLine:dark?'rgba(255,255,255,0.14)':'rgba(0,0,0,0.12)',
+    chipBg:dark?'rgba(255,255,255,0.16)':'#17191d', chipFg:dark?fg:'#ffffff',
+    sat:dark?'#a9c9ff':'#1f56c4', sun:dark?'#ffa7a0':'#c62828', halo:dark?'rgba(255,255,255,0.45)':null, custom:c };
+}
 
 const uid = () => Math.random().toString(36).slice(2,9);
 const pad2 = n => String(n).padStart(2,'0');
@@ -273,6 +337,8 @@ try{ state = JSON.parse(localStorage.getItem(KEY)); }catch(e){ state=null; }
 if(!state || !Array.isArray(state.horses)) state = sample();
 state.settings = Object.assign(sample().settings, state.settings||{});
 state.myHorses = Array.isArray(state.myHorses)?state.myHorses:[];
+state.myNames = state.myNames||{};
+state.settings.custom = {...DEFAULT_CUSTOM,...(state.settings.custom||{})};
 
 let saveT;
 function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ try{ localStorage.setItem(KEY, JSON.stringify({...state,horses:state.horses.map(h=>({...h,photo:''}))})); }catch(_){} } },300); }
@@ -368,6 +434,36 @@ function drawBg(ctx,W,H,T,theme,pad){
   } else if(theme==='night'){
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
     const r=ctx.createRadialGradient(W*.92,-H*.05,0,W*.92,-H*.05,W*.75); r.addColorStop(0,'rgba(242,201,76,0.20)'); r.addColorStop(1,'rgba(242,201,76,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+  } else if(theme==='gold'){
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const r=ctx.createRadialGradient(W*.5,-H*.1,0,W*.5,-H*.1,H*.8); r.addColorStop(0,'rgba(214,178,94,0.22)'); r.addColorStop(1,'rgba(214,178,94,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+    ctx.save(); ctx.strokeStyle='rgba(214,178,94,0.06)'; ctx.lineWidth=1; for(let x=-H;x<W;x+=14){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x+H,H); ctx.stroke(); } ctx.restore();
+    ctx.strokeStyle='rgba(214,178,94,0.75)'; ctx.lineWidth=2; ctx.strokeRect(pad*.4,pad*.4,W-pad*.8,H-pad*.8);
+    ctx.strokeStyle='rgba(214,178,94,0.35)'; ctx.lineWidth=1; ctx.strokeRect(pad*.4+7,pad*.4+7,W-pad*.8-14,H-pad*.8-14);
+  } else if(theme==='sakura'){
+    const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const rnd=mulberry(11), s0=W/1080;
+    for(let i=0;i<70;i++){ const x=rnd()*W, y=rnd()*H, r=(10+rnd()*16)*s0, a=rnd()*Math.PI*2;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(a); ctx.fillStyle=`rgba(232,128,163,${.12+rnd()*.22})`;
+      ctx.beginPath(); ctx.moveTo(0,-r); ctx.bezierCurveTo(r*.9,-r*.6,r*.6,r*.7,0,r); ctx.bezierCurveTo(-r*.6,r*.7,-r*.9,-r*.6,0,-r); ctx.fill();
+      ctx.fillStyle=T.bg; ctx.beginPath(); ctx.moveTo(-r*.18,-r*1.02); ctx.lineTo(0,-r*.7); ctx.lineTo(r*.18,-r*1.02); ctx.fill(); ctx.restore(); }
+  } else if(theme==='summer'){
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1592c4'); g.addColorStop(.55,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const r=ctx.createRadialGradient(W*.88,H*.04,0,W*.88,H*.04,W*.55); r.addColorStop(0,'rgba(255,230,140,0.45)'); r.addColorStop(1,'rgba(255,230,140,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=Math.max(2,W*.003);
+    for(let y=H*.18;y<H;y+=H*.045){ ctx.beginPath(); for(let x=0;x<=W;x+=W/60){ const yy=y+Math.sin(x/W*Math.PI*6+y)*H*.008; x?ctx.lineTo(x,yy):ctx.moveTo(x,yy); } ctx.stroke(); }
+  } else if(theme==='snow'){
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const rnd=mulberry(5), s0=W/1080;
+    for(let i=0;i<260;i++){ const rr2=(1.5+rnd()*5)*s0; ctx.fillStyle=`rgba(255,255,255,${.5+rnd()*.5})`; ctx.beginPath(); ctx.arc(rnd()*W,rnd()*H,rr2,0,Math.PI*2); ctx.fill(); }
+    ctx.strokeStyle='rgba(44,108,176,0.16)'; ctx.lineWidth=2;
+    for(let i=0;i<9;i++){ const x=rnd()*W, y=rnd()*H, r=(14+rnd()*22)*s0; ctx.save(); ctx.translate(x,y); for(let k=0;k<6;k++){ ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r); ctx.moveTo(0,-r*.55); ctx.lineTo(-r*.22,-r*.75); ctx.moveTo(0,-r*.55); ctx.lineTo(r*.22,-r*.75); ctx.stroke(); } ctx.restore(); }
+  } else if(theme==='custom'){
+    const c=T.custom||DEFAULT_CUSTOM, img=c.image&&imgCache[c.image];
+    const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    if(img&&img.naturalWidth){ const k=Math.max(W/img.naturalWidth,H/img.naturalHeight), w=img.naturalWidth*k, h=img.naturalHeight*k;
+      ctx.drawImage(img,(W-w)/2,(H-h)/2,w,h); ctx.fillStyle=`rgba(0,0,0,${(c.dim??45)/100})`; ctx.fillRect(0,0,W,H);
+      const b=ctx.createLinearGradient(0,H*.45,0,H); b.addColorStop(0,'rgba(0,0,0,0)'); b.addColorStop(1,'rgba(0,0,0,0.35)'); ctx.fillStyle=b; ctx.fillRect(0,0,W,H); }
   } else {
     ctx.strokeStyle=T.fg; ctx.lineWidth=2; ctx.strokeRect(pad*.45,pad*.45,W-pad*.9,H-pad*.9);
   }
@@ -509,7 +605,8 @@ const imgCache={};
 function loadImg(src){ if(imgCache[src]) return Promise.resolve(imgCache[src]); return new Promise(r=>{ const i=new Image(); i.onload=()=>{imgCache[src]=i;r(i);}; i.onerror=()=>r(null); i.src=src; }); }
 
 async function render(){
-  const S=state.settings, T=THEMES[S.theme]||THEMES.turf; const [W,H]=SIZES[S.size]||SIZES['4:5'];
+  const S=state.settings, T=S.theme==='custom'?customTheme(S.custom):(THEMES[S.theme]||THEMES.turf);
+  if(S.theme==='custom'&&S.custom&&S.custom.image) await loadImg(S.custom.image); const [W,H]=SIZES[S.size]||SIZES['4:5'];
   const hs=state.horses;
   const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
   try{ await Promise.all([
@@ -657,7 +754,7 @@ $('#add').addEventListener('click',()=>{ const last=state.horses[state.horses.le
   const card=document.querySelector(`.horse[data-id="${h.id}"]`); card.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); card.querySelector('[data-f="name"]').focus({preventScroll:true}); });
 const clearBtn=$('#clear');
 clearBtn.addEventListener('click',()=>{ if(clearBtn.dataset.armed){ state.horses=[]; delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; renderList(); schedule(); save(); } else { clearBtn.dataset.armed='1'; clearBtn.textContent='もう一度押すと全馬を消します'; setTimeout(()=>{ delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; },3000); } });
-$('#sample').addEventListener('click',()=>{ const keep=state.settings; state=sample(); state.settings={...state.settings,theme:keep.theme,size:keep.size,handle:keep.handle}; renderList(); syncSettings(); schedule(); save(); });
+$('#sample').addEventListener('click',()=>{ const old=state, keep=old.settings; state=sample(); state.settings={...state.settings,theme:keep.theme,size:keep.size,handle:keep.handle,custom:keep.custom}; state.myHorses=old.myHorses||[]; state.myNames=old.myNames||{}; renderList(); syncSettings(); syncCustom(); schedule(); save(); });
 
 function syncSettings(){ const S=state.settings;
   $('#s-title').value=S.title; $('#s-handle').value=S.handle;
@@ -690,7 +787,7 @@ const inList=x=>state.horses.some(h=>h.horseId===x.horseId&&h.date===x.date);
 function addFromData(xs){
   if(!xs.length) return;
   state.horses=state.horses.filter(h=>!h.isSample);
-  xs.forEach(x=>{ if(!inList(x)) state.horses.push(fromData(x)); if(!isMine(x.horseId)) state.myHorses.push(x.horseId); });
+  xs.forEach(x=>{ if(!inList(x)) state.horses.push(fromData(x)); if(!isMine(x.horseId)) state.myHorses.push(x.horseId); state.myNames[x.horseId]=x.name; });
   renderList(); renderPicker(); schedule(); save();
 }
 function syncFromData(){ // 追加済みの馬を最新の出馬表で更新（枠・馬番・騎手など）
@@ -729,11 +826,12 @@ function renderPicker(){
   if(mineNot.length) b+=`<div class="banner"><p>★を付けた出資馬が今週 <b>${mineNot.length}頭</b> 出走します：${esc(mineNot.map(x=>x.name).join('、'))}</p><button type="button" class="primary" data-act="add-mine">まとめて追加</button></div>`;
   if(old.length) b+=`<div class="banner"><p>先週までの馬が <b>${old.length}頭</b> 残っています。</p><button type="button" data-act="del-old">消す</button></div>`;
   B.innerHTML=b;
+  renderTransfer();
 }
 $('#picker').addEventListener('click',e=>{ const b=e.target.closest('button[data-act]'); if(!b||!RACES) return; const a=b.dataset.act;
   const row=b.closest('.prow'), x=row&&RACES.horses.find(y=>y.key===row.dataset.k);
   if(a==='add'&&x) addFromData([x]);
-  if(a==='star'&&x){ state.myHorses=isMine(x.horseId)?state.myHorses.filter(i=>i!==x.horseId):[...state.myHorses,x.horseId]; save(); renderPicker(); }
+  if(a==='star'&&x){ state.myHorses=isMine(x.horseId)?state.myHorses.filter(i=>i!==x.horseId):[...state.myHorses,x.horseId]; state.myNames[x.horseId]=x.name; save(); renderPicker(); }
   if(a==='add-mine') addFromData(RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status));
   if(a==='del-old'){ const f=(RACES.days[0]||{}).date; state.horses=state.horses.filter(h=>h.isSample||!h.date||h.date>=f); renderList(); renderPicker(); schedule(); save(); }
 });
@@ -747,6 +845,7 @@ async function loadRaces(){
     const counts={}; RACES.horses.forEach(x=>counts[x.clubId]=(counts[x.clubId]||0)+1);
     $('#p-club').innerHTML=`<option value="">すべてのクラブ（${RACES.horses.length}頭）</option>`+CLUBS.filter(c=>counts[c.id]).map(c=>`<option value="${c.id}">${esc(c.name)}（${counts[c.id]}頭）</option>`).join('');
     try{ const v=localStorage.getItem('racecard.pclub'); if(v&&counts[v]) $('#p-club').value=v; }catch(e){}
+    RACES.horses.forEach(x=>{ if(isMine(x.horseId)) state.myNames[x.horseId]=x.name; });
     const n=syncFromData(); if(n){ renderList(); save(); U.textContent+=`／出走馬${n}頭を最新の内容に更新`; }
     renderPicker(); schedule();
   }catch(e){
@@ -756,7 +855,62 @@ async function loadRaces(){
 }
 $('#p-club').addEventListener('change',e=>{ try{ localStorage.setItem('racecard.pclub',e.target.value); }catch(_){} });
 
-syncSettings(); renderList(); (document.fonts?document.fonts.ready:Promise.resolve()).then(schedule); loadRaces();
+/* ---------- ★の引き継ぎ ---------- */
+// コード形式: RC1: + 馬ID（10桁）を36進数にして「.」でつないだもの
+function encodeMine(ids){ return 'RC1:'+ids.map(id=>Number(id).toString(36)).join('.'); }
+function decodeMine(code){
+  code=String(code||'').trim().replace(/^.*#star=/,'');
+  try{ code=decodeURIComponent(code); }catch(e){}
+  const m=code.match(/^RC1:([0-9a-z.]*)$/i); if(!m) return null;
+  return m[1].split('.').filter(Boolean).map(t=>String(parseInt(t,36))).filter(id=>/^\d{10}$/.test(id));
+}
+function shareLink(){ return location.origin+location.pathname+'#star='+encodeURIComponent(encodeMine(state.myHorses)); }
+function renderTransfer(){
+  $('#t-count').textContent=state.myHorses.length;
+  $('#t-code').value=state.myHorses.length?encodeMine(state.myHorses):'';
+  $('#t-list').innerHTML=state.myHorses.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')||'<p class="pempty">まだ★を付けた馬はいません。</p>';
+}
+function importMine(ids){
+  const before=state.myHorses.length; state.myHorses=[...new Set([...state.myHorses,...ids])];
+  if(RACES) RACES.horses.forEach(x=>{ if(ids.includes(x.horseId)) state.myNames[x.horseId]=x.name; });
+  save(); renderTransfer(); renderPicker(); return state.myHorses.length-before;
+}
+async function copyText(t,okMsg){ const st=$('#t-status');
+  try{ await navigator.clipboard.writeText(t); st.textContent=okMsg; }
+  catch(e){ const i=$('#t-code'); i.value=t; i.select(); st.textContent='コピーできなかったので、表示された文字を選んでコピーしてください'; } }
+$('#t-copy').addEventListener('click',()=>{ if(!state.myHorses.length){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(encodeMine(state.myHorses),'コードをコピーしました'); });
+$('#t-link').addEventListener('click',()=>{ if(!state.myHorses.length){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(shareLink(),'リンクをコピーしました。もう一方の端末で開くと読み込めます'); });
+$('#t-load').addEventListener('click',()=>{ const ids=decodeMine($('#t-in').value);
+  if(!ids){ $('#t-status').textContent='コードの形式が違います。RC1: から始まるコードを貼り付けてください'; return; }
+  const n=importMine(ids); $('#t-in').value=''; $('#t-status').textContent=`${ids.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`; });
+$('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data-id]'); if(!b) return; state.myHorses=state.myHorses.filter(i=>i!==b.dataset.id); save(); renderTransfer(); renderPicker(); });
+function checkHashImport(){
+  if(!location.hash.startsWith('#star=')) return;
+  const ids=decodeMine(location.hash); history.replaceState(null,'',location.pathname+location.search);
+  if(!ids||!ids.length) return;
+  const B=$('#p-banners'), div=document.createElement('div'); div.className='banner';
+  div.innerHTML=`<p>引き継ぎリンクの★ <b>${ids.length}頭</b> をこの端末に読み込みますか？</p><div class="row-inline"><button type="button" class="primary">読み込む</button><button type="button" class="ghost">やめる</button></div>`;
+  const [ok,no]=div.querySelectorAll('button');
+  ok.addEventListener('click',()=>{ const n=importMine(ids); div.remove(); $('#transfer').open=true; $('#t-status').textContent=`${ids.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`; });
+  no.addEventListener('click',()=>div.remove());
+  $('#picker').insertBefore(div,B);
+}
+
+/* ---------- カスタム背景 ---------- */
+function syncCustom(){ const c=state.settings.custom, on=state.settings.theme==='custom';
+  $('#custom-box').hidden=!on; $('#c-bg').value=c.bg; $('#c-accent').value=c.accent; $('#c-dim').value=c.dim; $('#c-dim-val').textContent=c.dim+'%';
+  $('#c-thumb').hidden=!c.image; if(c.image) $('#c-thumb').src=c.image; $('#c-img-del').hidden=!c.image; $('#c-dim-wrap').hidden=!c.image;
+  $('#c-img-label').textContent=c.image?'背景画像を変える':'背景画像を選ぶ'; }
+$('#c-bg').addEventListener('input',e=>{ state.settings.custom.bg=e.target.value; schedule(); save(); });
+$('#c-accent').addEventListener('input',e=>{ state.settings.custom.accent=e.target.value; schedule(); save(); });
+$('#c-dim').addEventListener('input',e=>{ state.settings.custom.dim=+e.target.value; $('#c-dim-val').textContent=e.target.value+'%'; schedule(); save(); });
+$('#c-img').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f) return; const fr=new FileReader();
+  fr.onload=()=>{ const i=new Image(); i.onload=()=>{ const m=1600, sc=Math.min(1,m/Math.max(i.width,i.height)); const c=document.createElement('canvas'); c.width=Math.round(i.width*sc); c.height=Math.round(i.height*sc); c.getContext('2d').drawImage(i,0,0,c.width,c.height);
+    state.settings.custom.image=c.toDataURL('image/jpeg',.85); syncCustom(); schedule(); save(); }; i.src=fr.result; }; fr.readAsDataURL(f); e.target.value=''; });
+$('#c-img-del').addEventListener('click',()=>{ state.settings.custom.image=''; syncCustom(); schedule(); save(); });
+document.querySelectorAll('input[name=theme]').forEach(r=>r.addEventListener('change',syncCustom));
+
+syncSettings(); syncCustom(); renderList(); renderTransfer(); (document.fonts?document.fonts.ready:Promise.resolve()).then(schedule); loadRaces().then(()=>{ renderTransfer(); checkHashImport(); });
 })();
 </script>
 
