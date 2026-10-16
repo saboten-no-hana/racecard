@@ -159,7 +159,7 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
       </fieldset>
       <fieldset class="fld"><legend>並び順（日付ごと）</legend>
         <div class="seg" id="s-order">
-          <label><input type="radio" name="order" value="venue"><span>競馬場・レース順</span></label>
+          <label><input type="radio" name="order" value="venue"><span>競馬場別（関東→関西→第3場）</span></label>
           <label><input type="radio" name="order" value="time"><span>発走時刻順</span></label>
           <label><input type="radio" name="order" value="input"><span>入力順</span></label>
         </div>
@@ -337,18 +337,31 @@ function drawBg(ctx,W,H,T,theme,pad){
 }
 
 /* ---------- layout ---------- */
-// JRAの競馬場コード順（札幌01〜小倉10）
+// 競馬場の並び: 関東主場 → 関西主場 → 第3場（→ 第4場以降）
+// 関東主場 = 東京・中山（なければ新潟・福島）、関西主場 = 京都・阪神（なければ中京・小倉）。札幌・函館は常に第3場以降。
+// heldVenues に「その日に開催している競馬場」を渡すと、出資馬がいない主場も考慮して正しく判定する（自動取得で使う予定）
 const VENUE_ORDER=['札幌','函館','福島','新潟','東京','中山','中京','京都','阪神','小倉'];
-const venueRank=v=>{ const i=VENUE_ORDER.indexOf((v||'').trim()); return i<0?(v?50:99):i; };
+const EAST_MAIN=['東京','中山','新潟','福島'], WEST_MAIN=['京都','阪神','中京','小倉'];
 const num=v=>{ const n=parseInt(v,10); return isNaN(n)?99:n; };
-function entriesOf(horses,order){
+function venueRanker(venues){
+  const set=new Set(venues.map(v=>(v||'').trim()).filter(Boolean));
+  const east=EAST_MAIN.find(v=>set.has(v)), west=WEST_MAIN.find(v=>set.has(v));
+  return v=>{ v=(v||'').trim(); if(!v) return 999; if(v===east) return 0; if(v===west) return 1;
+    const i=VENUE_ORDER.indexOf(v); return i<0?500:10+i; };
+}
+function entriesOf(horses,order,heldVenues){
   let hs=horses.slice();
   const byDate=(a,b)=>(a.date||'9999').localeCompare(b.date||'9999');
-  if(order==='venue') hs.sort((a,b)=>byDate(a,b)||venueRank(a.venue)-venueRank(b.venue)||(a.venue||'').localeCompare(b.venue||'')||num(a.r)-num(b.r)||(a.time||'99:99').localeCompare(b.time||'99:99'));
-  else if(order==='time') hs.sort((a,b)=>byDate(a,b)||(a.time||'99:99').localeCompare(b.time||'99:99')||venueRank(a.venue)-venueRank(b.venue));
+  const rankers={};
+  const rankOf=h=>{ const d=h.date||''; if(!rankers[d]) rankers[d]=venueRanker((heldVenues&&heldVenues[d])||horses.filter(x=>(x.date||'')===d).map(x=>x.venue)); return rankers[d](h.venue); };
+  if(order==='venue') hs.sort((a,b)=>byDate(a,b)||rankOf(a)-rankOf(b)||(a.venue||'').localeCompare(b.venue||'')||num(a.r)-num(b.r)||(a.time||'99:99').localeCompare(b.time||'99:99'));
+  else if(order==='time') hs.sort((a,b)=>byDate(a,b)||(a.time||'99:99').localeCompare(b.time||'99:99')||rankOf(a)-rankOf(b));
   else hs.sort(byDate);
-  const out=[]; let cur;
-  hs.forEach((h,i)=>{ if(i===0||h.date!==cur){ out.push({t:'day',date:h.date}); cur=h.date; } out.push({t:'horse',h}); });
+  const out=[]; let cur, curV;
+  hs.forEach((h,i)=>{
+    if(i===0||h.date!==cur){ out.push({t:'day',date:h.date}); cur=h.date; curV=undefined; }
+    if(order==='venue' && (h.venue||'')!==curV){ curV=h.venue||''; out.push({t:'venue',venue:curV}); }
+    out.push({t:'horse',h}); });
   return out;
 }
 function splitCols(entries,cols){
@@ -356,10 +369,22 @@ function splitCols(entries,cols){
   const n=entries.filter(e=>e.t==='horse').length, half=Math.ceil(n/2); let c=0, idx=0;
   for(;idx<entries.length;idx++){ if(entries[idx].t==='horse' && ++c===half){ idx++; break; } }
   const a=entries.slice(0,idx); let b=entries.slice(idx);
-  if(b.length && b[0].t==='horse'){ const last=[...a].reverse().find(e=>e.t==='day'); if(last) b=[{...last,cont:true},...b]; }
+  if(b.length && b[0].t==='horse'){ // carry the day / venue headings over to the second column
+    const lastD=[...a].reverse().find(e=>e.t==='day'), lastV=[...a].reverse().find(e=>e.t==='venue');
+    const ia=a.lastIndexOf(lastD), iv=a.lastIndexOf(lastV);
+    const pre=[]; if(lastD) pre.push({...lastD,cont:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true}); b=[...pre,...b]; }
+  else if(b.length && b[0].t==='venue'){ const lastD=[...a].reverse().find(e=>e.t==='day'); if(lastD) b=[{...lastD,cont:true},...b]; }
   return [a,b];
 }
 
+function drawVenue(ctx,x,y,w,vh,e,T){
+  const s=Math.round(clamp(vh*.62,10,26)); const base=y+vh*.74;
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillStyle=T.accent; ctx.fillRect(x+2,base-s*.86,Math.max(3,s*.16),s*.92);
+  let cx=x+2+Math.max(3,s*.16)+s*.4;
+  ctx.font=`900 ${s}px ${F.body}`; ctx.fillStyle=T.fg; const t=e.venue||'競馬場未定'; ctx.fillText(t,cx,base); cx+=ctx.measureText(t).width;
+  if(e.cont){ ctx.font=`700 ${Math.round(s*.66)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.fillText('　つづき',cx,base); }
+}
 function drawDay(ctx,x,y,w,dh,e,T){
   const s=Math.round(clamp(dh*.6,12,34)); const base=y+dh*.72; const p=parseDate(e.date);
   ctx.textAlign='left'; ctx.textBaseline='alphabetic'; let cx=x;
@@ -474,13 +499,13 @@ async function render(){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の愛馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
     S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
-    const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5;
+    const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5, VEN=.36;
     const avail=bottom-top;
     let rowH=Infinity;
-    parts.forEach(p=>{ const nH=p.filter(e=>e.t==='horse').length, nD=p.filter(e=>e.t==='day').length; if(nH) rowH=Math.min(rowH, avail/(nH+nH*GAP+nD*DAY)); });
+    parts.forEach(p=>{ const nH=p.filter(e=>e.t==='horse').length, nD=p.filter(e=>e.t==='day').length, nV=p.filter(e=>e.t==='venue').length; if(nH) rowH=Math.min(rowH, avail/(nH+nH*GAP+nD*DAY+nV*VEN)); });
     rowH=Math.min(rowH, cols===1?W*.165:colW*.27);
     parts.forEach((p,ci)=>{ const x=pad+ci*(colW+colGap); let yy=top;
-      p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,yy,colW,dh,e,T); yy+=dh; } else { drawRow(ctx,x,yy,colW,rowH,e.h,T,S,imgs); yy+=rowH*(1+GAP); } });
+      p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,yy,colW,dh,e,T); yy+=dh; } else if(e.t==='venue'){ const vh=rowH*VEN; drawVenue(ctx,x,yy,colW,vh,e,T); yy+=vh; } else { drawRow(ctx,x,yy,colW,rowH,e.h,T,S,imgs); yy+=rowH*(1+GAP); } });
     });
     if(footH){ const fs=Math.round(ts*.36); ctx.font=`700 ${fs}px ${F.body}`; ctx.fillStyle=T.sub; ctx.fillText(`出資馬 ${hs.length}頭 出走`,pad,H-pad); }
   }
