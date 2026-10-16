@@ -1,0 +1,33 @@
+name: 勝負服画像の取得
+# silks/sources.txt に書いたファイル名の勝負服画像を Wikimedia Commons から取得して silks/ に保存する
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - silks/sources.txt
+      - .github/workflows/fetch-silks.yml
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download silks from Wikimedia Commons
+        run: |
+          while read -r f; do
+            [ -z "$f" ] && continue
+            curl -fsSL --retry 3 --retry-delay 5 \
+              -A "racecard/1.0 (https://github.com/saboten-no-hana/racecard)" \
+              -o "silks/$f" "https://commons.wikimedia.org/wiki/Special:FilePath/$f"
+            sleep 1
+          done < silks/sources.txt
+          ls -la silks
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add silks/*.svg
+          git diff --cached --quiet || git commit -m "勝負服画像を Wikimedia Commons から取得"
+          git push
