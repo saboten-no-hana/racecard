@@ -278,8 +278,8 @@ const WAKU = {
   4:{bg:'#0068b7',fg:'#ffffff'},5:{bg:'#ffe100',fg:'#111111'},6:{bg:'#00a040',fg:'#ffffff'},
   7:{bg:'#f39800',fg:'#111111'},8:{bg:'#f19ec2',fg:'#111111'}
 };
-const BODY_PATTERNS = [['plain','無地'],['tate','縦縞'],['yoko','横縞'],['tasuki','襷'],['jujitasuki','十字襷'],['wa1','一本輪'],['wa2','二本輪'],['wa3','三本輪'],['yamagata1','山形一文字'],['yamagata','山形二本輪'],['dots','玉霰'],['stars','星散'],['check','格子'],['genroku','元禄']];
-const SLEEVE_PATTERNS = [['plain','無地'],['wa1','一本輪'],['wa2','二本輪'],['wa3','三本輪'],['tate','縦縞'],['dots','玉霰'],['stars','星散'],['check','格子'],['genroku','元禄']];
+const BODY_PATTERNS = [['plain','無地'],['wa1','一本輪'],['wa2','二本輪'],['wa3','三本輪'],['ichimonji','一文字（胴と袖）'],['obi','帯'],['yamagatawa1','山形一本輪'],['yamagata','山形二本輪'],['yamagata1','山形一文字（胴と袖）'],['hishiyamagata','菱山形'],['kyoshi','鋸歯形（胴と袖）'],['tasuki','襷'],['jujitasuki','十字襷'],['tate','縦縞'],['check','格子'],['genroku','元禄'],['diamond','ダイヤモンド'],['uroko','うろこ'],['igeta','井桁絣'],['dots','玉霰'],['stars','星散'],['janome','蛇目散'],['zenigata','銭形散']];
+const SLEEVE_PATTERNS = [['plain','無地'],['wa1','一本輪'],['wa2','二本輪'],['wa3','三本輪'],['yamagatawa1','山形一本輪'],['yamagata','山形二本輪'],['tate','縦縞'],['check','格子'],['genroku','元禄'],['diamond','ダイヤモンド'],['uroko','うろこ'],['igeta','井桁絣'],['dots','玉霰'],['stars','星散'],['janome','蛇目散'],['zenigata','銭形散']];
 const KUCHI = [['none','なし'],['wait','抽選待ち'],['win','当選'],['lose','落選']];
 const DEFAULT_SILKS = {body:'白',pattern:'plain',pc:'白',sleeve:'白',sp:'plain',spc:'白'};
 const THEMES = {
@@ -367,53 +367,91 @@ function fit(ctx,text,weight,family,size,maxW,minRatio=0.62){
 }
 function mulberry(a){ return ()=>{ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
+/* ---------- 勝負服（手描き） ----------
+   形は JRA の勝負服の絵（Wikimedia Commons の各クラブの勝負服画像）に合わせ、袖は肩から下に垂らす。
+   座標は 1 辺 s の正方形を 0〜1 で表す。
+   柄は JRA の標示（競馬施行規程）に沿う: 輪・帯・山形・襷・縦縞・格子・元禄・ダイヤモンド・うろこ・井桁・玉霰・星散・蛇目・銭形。
+   一文字・山形一文字・鋸歯形は胴と袖にまたがって描く。 */
+const SLEEVE_GEO = { top:[.205,.115], cuff:[.10,.872], w:.15 };   // 左袖の付け根の中心・袖口の中心・袖の幅
 function bodyPath(ctx,x,y,s){ const P=(u,v)=>[x+u*s,y+v*s];
-  ctx.beginPath(); ctx.moveTo(...P(.30,.10)); ctx.lineTo(...P(.42,.045)); ctx.quadraticCurveTo(...P(.5,.15),...P(.58,.045));
-  ctx.lineTo(...P(.70,.10)); ctx.lineTo(...P(.735,.955)); ctx.quadraticCurveTo(...P(.5,.99),...P(.265,.955)); ctx.closePath(); }
+  ctx.beginPath(); ctx.moveTo(...P(.26,.085)); ctx.lineTo(...P(.405,.045)); ctx.quadraticCurveTo(...P(.5,.135),...P(.595,.045));
+  ctx.lineTo(...P(.74,.085)); ctx.lineTo(...P(.755,.952)); ctx.quadraticCurveTo(...P(.5,.99),...P(.245,.952)); ctx.closePath(); }
 function sleevePath(ctx,x,y,s,right){ const P=(u,v)=>[x+(right?1-u:u)*s,y+v*s];
-  ctx.beginPath(); ctx.moveTo(...P(.30,.10)); ctx.lineTo(...P(.04,.50)); ctx.lineTo(...P(.155,.59)); ctx.lineTo(...P(.30,.37)); ctx.closePath(); }
-function star(ctx,cx,cy,r){ ctx.beginPath(); for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rad=i%2?r*.45:r; ctx.lineTo(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad); } ctx.closePath(); ctx.fill(); }
-
-function fillPattern(ctx,x,y,s,type,color){
-  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineCap='butt';
-  const chevron=(v,lw)=>{ ctx.lineWidth=lw; ctx.lineJoin='miter'; ctx.beginPath(); ctx.moveTo(x+.15*s,y+(v+.15)*s); ctx.lineTo(x+.5*s,y+(v-.07)*s); ctx.lineTo(x+.85*s,y+(v+.15)*s); ctx.stroke(); };
+  ctx.beginPath(); ctx.moveTo(...P(.30,.075)); ctx.lineTo(...P(.14,.135)); ctx.quadraticCurveTo(...P(.10,.16),...P(.095,.21));
+  ctx.lineTo(...P(.028,.858)); ctx.lineTo(...P(.168,.886)); ctx.lineTo(...P(.262,.40)); ctx.closePath(); }
+function star(ctx,cx,cy,r){ ctx.beginPath(); for(let i=0;i<10;i++){ const a=-Math.PI/2+i*Math.PI/5, rad=i%2?r*.42:r; ctx.lineTo(cx+Math.cos(a)*rad,cy+Math.sin(a)*rad); } ctx.closePath(); ctx.fill(); }
+/* 散らし柄の配置: 段ごとに1つずらして並べる（cols=1段の数） */
+function scatter(X0,Y0,W,H,step,draw){ const n=Math.max(1,Math.round(W/step)), dx=W/n; let row=0;
+  for(let v=Y0+step*.55; v<Y0+H; v+=step*.86, row++){ const off=row%2?dx/2:0; for(let i=-1;i<=n;i++){ const u=X0+dx/2+i*dx+off; if(u>X0-dx*.6&&u<X0+W+dx*.6) draw(u,v); } } }
+/* 1 枚の長方形（胴または袖を縦にした座標）に柄を描く。k は大きさの基準（= s） */
+function fillPattern(ctx,X0,Y0,W,H,k,type,color,sleeve){
+  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineCap='butt'; ctx.lineJoin='miter';
+  const band=(v,h)=>ctx.fillRect(X0-k,Y0+v*H-h*k/2,W+2*k,h*k);   // 横帯（v は 0〜1 の高さ位置）
+  const zig=(v,h,peaks)=>{ const n=peaks*2, dx=W/n, a=Math.min(.11*k,dx*1.25);       // 山形（ぎざぎざの輪）
+    ctx.lineWidth=h*k; ctx.beginPath(); for(let i=-1;i<=n+1;i++){ const px=X0+i*dx, py=Y0+v*H+(i%2?-a/2:a/2); i<0?ctx.moveTo(px,py):ctx.lineTo(px,py); } ctx.stroke(); };
   switch(type){
-    case 'tate': for(let u=.115;u<1;u+=.14) ctx.fillRect(x+u*s,y,s*.07,s); break;
-    case 'yoko': for(let v=.15;v<1;v+=.16) ctx.fillRect(x,y+v*s,s,s*.075); break;
-    case 'tasuki': ctx.lineWidth=s*.15; ctx.beginPath(); ctx.moveTo(x+.24*s,y+.04*s); ctx.lineTo(x+.80*s,y+1.02*s); ctx.stroke(); break;
-    case 'jujitasuki': ctx.lineWidth=s*.12; ctx.beginPath(); ctx.moveTo(x+.24*s,y+.04*s); ctx.lineTo(x+.80*s,y+1.02*s); ctx.moveTo(x+.76*s,y+.04*s); ctx.lineTo(x+.20*s,y+1.02*s); ctx.stroke(); break;
-    case 'wa1': ctx.fillRect(x,y+.46*s,s,.15*s); break;
-    case 'wa2': ctx.fillRect(x,y+.35*s,s,.10*s); ctx.fillRect(x,y+.60*s,s,.10*s); break;
-    case 'wa3': ctx.fillRect(x,y+.30*s,s,.075*s); ctx.fillRect(x,y+.50*s,s,.075*s); ctx.fillRect(x,y+.70*s,s,.075*s); break;
-    case 'yamagata1': chevron(.50,s*.11); break;
-    case 'yamagata': chevron(.44,s*.085); chevron(.72,s*.085); break;
-    case 'dots': { const r=s*.032; let row=0; for(let v=.2;v<1;v+=.13,row++) for(let u=(row%2?.135:.07);u<1;u+=.13){ ctx.beginPath(); ctx.arc(x+u*s,y+v*s,r,0,Math.PI*2); ctx.fill(); } break; }
-    case 'stars': { const r=s*.05; let row=0; for(let v=.22;v<1;v+=.17,row++) for(let u=(row%2?.17:.08);u<1;u+=.18) star(ctx,x+u*s,y+v*s,r); break; }
-    case 'check': { const c=s*.115; for(let i=0;i*c<s;i++) for(let j=0;j*c<s;j++) if((i+j)%2===0) ctx.fillRect(x+i*c,y+j*c,c,c); break; }
-    case 'genroku': { ctx.save(); ctx.translate(x+s/2,y+s/2); ctx.rotate(Math.PI/4); const c=s*.13; for(let i=-6;i<6;i++) for(let j=-6;j<6;j++) if((i+j)%2===0) ctx.fillRect(i*c,j*c,c,c); ctx.restore(); break; }
+    case 'wa1': case 'ichimonji': band(sleeve?.62:.54, sleeve?.085:.14); break;
+    case 'wa2': if(sleeve){ band(.50,.065); band(.72,.065); } else { band(.42,.10); band(.66,.10); } break;
+    case 'wa3': if(sleeve){ band(.42,.05); band(.60,.05); band(.78,.05); } else { band(.36,.075); band(.54,.075); band(.72,.075); } break;
+    case 'obi': band(.84,.13); break;
+    case 'yoko': for(let v=.15;v<1;v+=.16) band(v,.075); break;   // 旧データ用（JRAの標示にはない）
+    case 'yamagatawa1': case 'yamagata1': if(sleeve) zig(.60,.06,1); else zig(.52,.10,3); break;
+    case 'yamagata': if(sleeve){ zig(.48,.05,1); zig(.72,.05,1); } else { zig(.40,.075,3); zig(.66,.075,3); } break;
+    case 'hishiyamagata': { const n=sleeve?1:3, dx=W/n, cy=Y0+(sleeve?.6:.52)*H, hh=(sleeve?.10:.14)*k;
+      for(let i=0;i<n;i++){ const cx=X0+dx*(i+.5); ctx.beginPath(); ctx.moveTo(cx-dx/2,cy); ctx.lineTo(cx,cy-hh); ctx.lineTo(cx+dx/2,cy); ctx.lineTo(cx,cy+hh); ctx.closePath(); ctx.fill(); } break; }
+    case 'tate': { const n=sleeve?2:Math.max(3,Math.round(W/(.13*k))), p=W/n; for(let i=0;i<n;i++) ctx.fillRect(X0+i*p+p*.25,Y0-k,p*.5,H+2*k); break; }
+    case 'tasuki': ctx.lineWidth=k*.13; ctx.beginPath(); ctx.moveTo(X0+W*.06,Y0+H*.03); ctx.lineTo(X0+W*.98,Y0+H*1.0); ctx.stroke(); break;
+    case 'jujitasuki': ctx.lineWidth=k*.11; ctx.beginPath(); ctx.moveTo(X0+W*.06,Y0+H*.03); ctx.lineTo(X0+W*.98,Y0+H*1.0); ctx.moveTo(X0+W*.94,Y0+H*.03); ctx.lineTo(X0+W*.02,Y0+H*1.0); ctx.stroke(); break;
+    case 'check': { const c=sleeve?W/2:W/4, lw=.035*k; for(let u=X0+c/2;u<X0+W;u+=c) ctx.fillRect(u-lw/2,Y0-k,lw,H+2*k); for(let v=Y0+c*.6;v<Y0+H;v+=c) ctx.fillRect(X0-k,v-lw/2,W+2*k,lw); break; }
+    case 'genroku': { const c=sleeve?W/2:W/4; for(let i=-1;i*c<W+c;i++) for(let j=-1;Y0+j*c<Y0+H+c;j++) if(((i+j)%2+2)%2===0) ctx.fillRect(X0+i*c,Y0+j*c,c,c); break; }
+    case 'diamond': { const dx=sleeve?W/2:W/4, dy=dx*1.4;   // 菱の市松（同じ段の菱は角で接し、間は地色）
+      for(let v=Y0;v<Y0+H+dy;v+=dy) for(let u=X0;u<X0+W+dx;u+=dx){
+        ctx.beginPath(); ctx.moveTo(u,v-dy/2); ctx.lineTo(u+dx/2,v); ctx.lineTo(u,v+dy/2); ctx.lineTo(u-dx/2,v); ctx.closePath(); ctx.fill(); } break; }
+    case 'uroko': { const dx=sleeve?W/2:W/4, dy=dx*.9; let row=0;
+      for(let v=Y0;v<Y0+H;v+=dy,row++) for(let u=X0+(row%2?dx/2:0)-dx;u<X0+W+dx;u+=dx){ ctx.beginPath(); ctx.moveTo(u,v+dy); ctx.lineTo(u+dx/2,v); ctx.lineTo(u+dx,v+dy); ctx.closePath(); ctx.fill(); } break; }
+    case 'igeta': { const step=sleeve?W:.19*k, a=.042*k, lw=.016*k; ctx.lineWidth=lw;
+      scatter(X0,Y0,W,H,step,(u,v)=>{ ctx.beginPath(); for(const d of [-a/2.6,a/2.6]){ ctx.moveTo(u+d,v-a); ctx.lineTo(u+d,v+a); ctx.moveTo(u-a,v+d); ctx.lineTo(u+a,v+d); } ctx.stroke(); }); break; }
+    case 'dots': { const step=sleeve?W:.23*k, r=(sleeve?.05:.064)*k; scatter(X0,Y0,W,H,step,(u,v)=>{ ctx.beginPath(); ctx.arc(u,v,r,0,Math.PI*2); ctx.fill(); }); break; }
+    case 'stars': { const step=sleeve?W:.24*k, r=(sleeve?.062:.088)*k; scatter(X0,Y0,W,H,step,(u,v)=>star(ctx,u,v,r)); break; }
+    case 'janome': { const step=sleeve?W:.23*k, r=(sleeve?.05:.064)*k; ctx.lineWidth=r*.55; scatter(X0,Y0,W,H,step,(u,v)=>{ ctx.beginPath(); ctx.arc(u,v,r*.72,0,Math.PI*2); ctx.stroke(); }); break; }
+    case 'zenigata': { const step=sleeve?W:.23*k, r=(sleeve?.05:.064)*k; scatter(X0,Y0,W,H,step,(u,v)=>{ ctx.beginPath(); ctx.arc(u,v,r,0,Math.PI*2); ctx.rect(u+r*.38,v-r*.38,-r*.76,r*.76); ctx.fill('evenodd'); }); break; }
   }
 }
-function sleeveBands(ctx,x,y,s,right,ts,color,lw){
-  const sh=[.2975,.235], cf=[.0975,.545]; const d=[cf[0]-sh[0],cf[1]-sh[1]]; const n0=[d[1],-d[0]]; const L=Math.hypot(...n0); const n=[n0[0]/L,n0[1]/L];
-  ctx.strokeStyle=color; ctx.lineWidth=s*lw; ctx.lineCap='butt';
-  for(const t of ts){ const c=[sh[0]+d[0]*t, sh[1]+d[1]*t]; const a=[c[0]-n[0]*.2,c[1]-n[1]*.2], b=[c[0]+n[0]*.2,c[1]+n[1]*.2];
-    const X=u=>x+(right?1-u:u)*s; ctx.beginPath(); ctx.moveTo(X(a[0]),y+a[1]*s); ctx.lineTo(X(b[0]),y+b[1]*s); ctx.stroke(); }
+/* 袖の中を、袖の向きに沿った座標にして柄を描く */
+function sleevePattern(ctx,x,y,s,right,type,color){
+  const g=SLEEVE_GEO, tx=right?1-g.top[0]:g.top[0], cx=right?1-g.cuff[0]:g.cuff[0];
+  const dx=(cx-tx)*s, dy=(g.cuff[1]-g.top[1])*s, L=Math.hypot(dx,dy), w=g.w*s;
+  ctx.save(); ctx.translate(x+tx*s,y+g.top[1]*s); ctx.rotate(Math.atan2(dx,dy)*-1);
+  fillPattern(ctx,-w/2,0,w,L,s,type,color,true); ctx.restore();
+}
+/* 胴と袖にまたがる柄（一文字・山形一文字・鋸歯形）。ページの座標でそのまま描き、呼び出し側で胴・袖それぞれに切り抜く */
+const SPAN_PATTERNS = { ichimonji:1, yamagata1:1, kyoshi:1 };
+function spanPattern(ctx,x,y,s,type,color){
+  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineJoin='miter';
+  if(type==='ichimonji'){ ctx.fillRect(x,y+.47*s,s,.14*s); return; }
+  if(type==='yamagata1'){ const n=10, dx=s/n, a=.09*s; ctx.lineWidth=.10*s; ctx.beginPath();
+    for(let i=-1;i<=n+1;i++){ const px=x+i*dx, py=y+.52*s+(i%2?-a/2:a/2); i<0?ctx.moveTo(px,py):ctx.lineTo(px,py); } ctx.stroke(); return; }
+  if(type==='kyoshi'){ const n=12, dx=s/n, base=.30*s, a=.09*s; ctx.beginPath(); ctx.moveTo(x-dx,y-s);
+    for(let i=-1;i<=n+1;i++) ctx.lineTo(x+i*dx, y+base+(i%2?a:0)); ctx.lineTo(x+s+dx,y-s); ctx.closePath(); ctx.fill(); }
 }
 function drawSilks(ctx,x,y,s,sk,halo){
-  const outline='rgba(10,12,14,0.78)';
+  const outline='rgba(10,12,14,0.78)', span=SPAN_PATTERNS[sk.pattern], lw=s*.022;
+  ctx.save(); ctx.lineJoin='round';
+  if(halo){ ctx.lineWidth=s*.05; ctx.strokeStyle=halo; for(const r of [false,true]){ sleevePath(ctx,x,y,s,r); ctx.stroke(); } bodyPath(ctx,x,y,s); ctx.stroke(); }
+  // 袖 → 胴の順に、塗り・柄・輪郭まで描く（袖の付け根の線は胴の下に隠れる）
   for(const right of [false,true]){
     ctx.save(); sleevePath(ctx,x,y,s,right); ctx.fillStyle=sk.sleeve; ctx.fill(); ctx.clip();
-    if(sk.sp==='wa1') sleeveBands(ctx,x,y,s,right,[.62],sk.spc,.075);
-    else if(sk.sp==='wa2') sleeveBands(ctx,x,y,s,right,[.45,.75],sk.spc,.07);
-    else if(sk.sp==='wa3') sleeveBands(ctx,x,y,s,right,[.38,.6,.82],sk.spc,.05);
-    else if(sk.sp && sk.sp!=='plain') fillPattern(ctx,x,y,s,sk.sp,sk.spc);
+    if(sk.sp && sk.sp!=='plain') sleevePattern(ctx,x,y,s,right,sk.sp,sk.spc);
+    if(span) spanPattern(ctx,x,y,s,sk.pattern,sk.pc);
     ctx.restore();
+    ctx.lineJoin='round'; ctx.lineWidth=lw; ctx.strokeStyle=outline; sleevePath(ctx,x,y,s,right); ctx.stroke();
   }
-  ctx.save(); bodyPath(ctx,x,y,s); ctx.fillStyle=sk.body; ctx.fill(); ctx.clip(); if(sk.pattern&&sk.pattern!=='plain') fillPattern(ctx,x,y,s,sk.pattern,sk.pc); ctx.restore();
-  ctx.lineJoin='round';
-  const strokeAll=(w,c)=>{ ctx.lineWidth=w; ctx.strokeStyle=c; sleevePath(ctx,x,y,s,false); ctx.stroke(); sleevePath(ctx,x,y,s,true); ctx.stroke(); bodyPath(ctx,x,y,s); ctx.stroke(); };
-  if(halo) strokeAll(s*.05,halo);
-  strokeAll(s*.022,outline);
+  ctx.save(); bodyPath(ctx,x,y,s); ctx.fillStyle=sk.body; ctx.fill(); ctx.clip();
+  if(span) spanPattern(ctx,x,y,s,sk.pattern,sk.pc);
+  else if(sk.pattern&&sk.pattern!=='plain') fillPattern(ctx,x+.245*s,y+.05*s,.51*s,.92*s,s,sk.pattern,sk.pc,false);
+  ctx.restore();
+  ctx.lineJoin='round'; ctx.lineWidth=lw; ctx.strokeStyle=outline; bodyPath(ctx,x,y,s); ctx.stroke();
+  ctx.restore();
 }
 
 function drawSilksImg(ctx,img,x,y,s,halo){
