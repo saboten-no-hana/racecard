@@ -853,6 +853,7 @@ function showGuide(mode){ const dlg=$('#post-guide');
   $('#pg-note').textContent = mode==='share' ? 'X を選んでも本文が入らない場合は、本文を手で入力してください。' : 'Xにログインしていない場合は、先にログインしてください。';
   $('#pg-go').textContent = mode==='share' ? '共有メニューを開く' : 'Xを開く';
   $('#pg-skip').checked=false;
+  $('#pg-h').textContent='Xに投稿する'+(isMobile()?'(スマホ)':'(PC)');
   dlg.dataset.mode=mode; dlg.showModal(); $('#pg-go').focus(); }
 $('#pg-cancel').addEventListener('click',()=>$('#post-guide').close());
 $('#pg-go').addEventListener('click',()=>{ const dlg=$('#post-guide'), mode=dlg.dataset.mode;
