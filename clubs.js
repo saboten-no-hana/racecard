@@ -10,6 +10,8 @@
              画像がある場合は画像を優先し、silks は画像が読めない時の代わりに使う
   - text   : 勝負服の登録表記（確認用）
   勝負服の出典: Wikipedia の各クラブ法人の記事とその掲載画像（2026年10月時点）。
+  ブルーミングホースクラブ（2025年発足、クラブ法人 Blooming Racing）は Wikipedia の記事がないため画像なし。
+  ゴールドホースクラブ（ゴールドレーシング）はほぼ休眠のため入れていない。
 
   柄の値: plain 無地 / tate 縦縞 / yoko 横縞 / tasuki 襷 / jujitasuki 十字襷 / wa1 一本輪 / wa2 二本輪 /
           wa3 三本輪 / yamagata1 山形一文字 / yamagata 山形二本輪 / dots 玉霰 / stars 星散 / check 格子 / genroku 元禄
@@ -37,7 +39,8 @@ window.CLUBS = [
   {id:'turfite', img:'silks/Owner_Turf_Sport.svg',  name:'ターファイトクラブ',             owner:'ターフ・スポート',               text:'黒、桃格子、桃袖',             silks:{body:'黒',pattern:'check',pc:'桃',sleeve:'桃',sp:'plain',spc:'桃'}},
   {id:'green', img:'silks/Owner_Green_Farm.svg',    name:'グリーンファーム愛馬会',         owner:'グリーンファーム',               text:'',                             silks:null},
   {id:'waraukado', img:'silks/Owner_Fukukitaru.svg',name:'ワラウカド',                     owner:'フクキタル',                     text:'',                             silks:null},
-  {id:'kyoto', img:'silks/Owner_Kyoto_Horse_Racing.svg',    name:'京都サラブレッドクラブ',         owner:'京都ホースレーシング',           text:'',                             silks:null}
+  {id:'kyoto', img:'silks/Owner_Kyoto_Horse_Racing.svg',    name:'京都サラブレッドクラブ',         owner:'京都ホースレーシング',           text:'',                             silks:null},
+  {id:'blooming', img:'',                                name:'ブルーミングホースクラブ',       owner:'Blooming Racing',               text:'',                             silks:null}
 ];
 
 /* JRAの勝負服に使われる13色 */

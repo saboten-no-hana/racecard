@@ -44,7 +44,7 @@ def load_clubs():
 def norm_owner(s):
     s = unicodedata.normalize('NFKC', s or '')
     s = re.sub(r'\((株|有|合|同)\)|株式会社|有限会社|合同会社|一般社団法人', '', s)
-    return re.sub(r'[\s・]', '', s)
+    return re.sub(r'[\s・]', '', s).casefold()   # 英字の名義（Blooming Racing など）は大文字小文字・全角半角を区別しない
 
 # ---------------------------------------------------------------- http
 class Fetcher:
@@ -259,7 +259,7 @@ def main():
     for x in result:
         hits[x['clubId']] = hits.get(x['clubId'], 0) + 1
     print('クラブ別:', hits)
-    miss = sorted({o for o in seen_owners.values() if re.search(r'レーシング|ホース|クラブ|サラブレッド|ファーム', o) and not clubs.get(norm_owner(o))})
+    miss = sorted({o for o in seen_owners.values() if re.search(r'レーシング|ホース|クラブ|サラブレッド|ファーム|racing|horse|club', o, re.I) and not clubs.get(norm_owner(o))})
     print('一致しなかったクラブらしい名義:', miss)
     order = {v: i for i, v in enumerate(VENUES.values())}
     result.sort(key=lambda x: (x['date'], order.get(x['venue'], 99), x['r'], int(x['umaban'] or 99)))
