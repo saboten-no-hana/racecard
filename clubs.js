@@ -11,6 +11,7 @@
   - text   : 勝負服の登録表記（確認用）
   勝負服の出典: Wikipedia の各クラブ法人の記事とその掲載画像（2026年10月時点）。
   ブルーミングホースクラブ（2025年発足、クラブ法人 Blooming Racing）は Wikipedia の記事がないため画像なし。
+  勝負服は会員提供の画像から判定して手描き（胴 赤・白鋸歯形、袖 白・赤二本輪）。text は JRA の表記順に沿って組んだもの。
   ゴールドホースクラブ（ゴールドレーシング）はほぼ休眠のため入れていない。
 
   柄の値（JRA の標示に沿う。index.html の BODY_PATTERNS / SLEEVE_PATTERNS と同じ）:
@@ -44,7 +45,7 @@ window.CLUBS = [
   {id:'green', img:'silks/Owner_Green_Farm.svg',    name:'グリーンファーム愛馬会',         owner:'グリーンファーム',               text:'',                             silks:null},
   {id:'waraukado', img:'silks/Owner_Fukukitaru.svg',name:'ワラウカド',                     owner:'フクキタル',                     text:'',                             silks:null},
   {id:'kyoto', img:'silks/Owner_Kyoto_Horse_Racing.svg',    name:'京都サラブレッドクラブ',         owner:'京都ホースレーシング',           text:'',                             silks:null},
-  {id:'blooming', img:'',                                name:'ブルーミングホースクラブ',       owner:'Blooming Racing',               text:'',                             silks:null}
+  {id:'blooming', img:'',                                name:'ブルーミングホースクラブ',       owner:'Blooming Racing',               text:'赤、白袖赤二本輪、白鋸歯形',   silks:{body:'赤',pattern:'kyoshi',pc:'白',sleeve:'白',sp:'wa2',spc:'赤'}}
 ];
 
 /* JRAの勝負服に使われる13色 */
