@@ -40,7 +40,7 @@ window.CLUBS = [
   {id:'union', img:'silks/Owner_Hidaka_Breeders_Union.svg',    name:'ユニオンオーナーズクラブ',       owner:'ヒダカ・ブリーダーズ・ユニオン', text:'緑、赤襷、赤袖白一本輪',       silks:{body:'緑',pattern:'tasuki',pc:'赤',sleeve:'赤',sp:'wa1',spc:'白'}},
   {id:'taiki', img:'silks/Owner_Taiki_Farm.svg',    name:'大樹レーシングクラブ',           owner:'大樹ファーム',                   text:'緑、白星散、袖白縦縞',         silks:{body:'緑',pattern:'stars',pc:'白',sleeve:'緑',sp:'tate',spc:'白'}},
   {id:'lion', img:'silks/Owner_Lion_Race_Horse.svg',     name:'ライオンレースホース',           owner:'ライオンレースホース',           text:'黄、黒山形二本輪、白袖赤一本輪', silks:{body:'黄',pattern:'yamagata',pc:'黒',sleeve:'白',sp:'wa1',spc:'赤'}},
-  {id:'yushun', img:'silks/Owner_Yushun_Horse_Club_002.svg',   name:'友駿ホースクラブ',               owner:'友駿ホースクラブ',               text:'青、赤袖、白三本輪',           silks:{body:'青',pattern:'plain',pc:'青',sleeve:'赤',sp:'wa3',spc:'白'}},
+  {id:'yushun', img:'silks/Owner_Yushun_Horse_Club_002.svg',   name:'友駿ホースクラブ',               owner:'友駿ホースクラブ',               text:'青、赤袖、白三本輪',           silks:{body:'青',pattern:'wa3',pc:'白',sleeve:'赤',sp:'wa3',spc:'白'}},
   {id:'laurel', img:'silks/Owner_Laurel_Racing_Club.svg',   name:'ローレルクラブ',                 owner:'ローレルレーシング',             text:'海老、白玉霰',                 silks:{body:'海老',pattern:'dots',pc:'白',sleeve:'海老',sp:'dots',spc:'白'}},
   {id:'turfite', img:'silks/Owner_Turf_Sport.svg',  name:'ターファイトクラブ',             owner:'ターフ・スポート',               text:'黒、桃格子、桃袖',             silks:{body:'黒',pattern:'check',pc:'桃',sleeve:'桃',sp:'plain',spc:'桃'}},
   {id:'green', img:'silks/Owner_Green_Farm.svg',    name:'グリーンファーム愛馬会',         owner:'グリーンファーム',               text:'',                             silks:null},
