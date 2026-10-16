@@ -111,7 +111,7 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 
 <header class="top"><div class="wrap">
   <h1>愛馬出走カードメーカー</h1>
-  <p class="lede">今週末に走る出資馬を1枚の画像にまとめて、Xに投稿できる形で書き出します。複数クラブの馬を混ぜて並べられ、クラブを選ぶと勝負服が自動で入ります。木曜の出走確定時点（枠順未定）では競馬場とレース番号を、金曜に枠・馬番を入れると枠色つきの馬番を表示します。</p>
+  <p class="lede">今週末に走る出資馬を1枚の画像にまとめて、Xに投稿できる形で書き出します。複数クラブの馬を混ぜて並べられ、クラブを選ぶと勝負服が自動で入ります。競馬場とレース番号を表示し、金曜に枠・馬番を入れるとその横に枠色つきの馬番も並びます。</p>
 </div></header>
 
 <main class="wrap layout">
@@ -364,23 +364,25 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   const ip=h*.11;
   const bw=h*.5, bh=h*.62, bx=x+ip, by=y+(h-bh)/2;
   const hasUma=!!hr.umaban;
-  if(hasUma){ // after 枠順確定: waku-colored number
-    const wk=WAKU[hr.waku];
-    rr(ctx,bx,by,bw,bh,h*.06); ctx.fillStyle=wk?wk.bg:T.chipBg; ctx.fill();
+  // venue + race number (always shown)
+  rr(ctx,bx,by,bw,bh,h*.06); ctx.fillStyle=T.chipBg; ctx.fill();
+  ctx.fillStyle=T.chipFg; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  if(hr.venue){ const f=fit(ctx,hr.venue,900,F.body,bh*.24,bw*.86); ctx.fillText(f.t,bx+bw/2,by+bh*.34); }
+  if(hr.r){ const ns=Math.round(bh*.5); ctx.font=`700 ${ns}px ${F.num}`; const num=String(hr.r); const nw=ctx.measureText(num).width;
+    ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; const rw=ctx.measureText('R').width; const sx0=bx+bw/2-(nw+rw)/2;
+    ctx.textAlign='left'; ctx.font=`700 ${ns}px ${F.num}`; ctx.fillText(num,sx0,by+bh*.86); ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; ctx.fillText('R',sx0+nw+1,by+bh*.86); }
+  if(!hr.venue&&!hr.r){ ctx.textAlign='center'; ctx.font=`700 ${Math.round(bh*.5)}px ${F.num}`; ctx.fillText('–',bx+bw/2,by+bh*.68); }
+  let nextX=bx+bw;
+  if(hasUma||S._anyUma){ // after 枠順確定 (Friday): waku-colored number next to the race block (slot kept on every row for alignment)
+    const uw=h*.44, ux=bx+bw+ip*.45, wk=hasUma?WAKU[hr.waku]:null;
+    rr(ctx,ux,by,uw,bh,h*.06); ctx.fillStyle=wk?wk.bg:T.chipBg; ctx.fill();
     if(wk&&wk.border){ ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.lineWidth=1.5; ctx.stroke(); }
     ctx.fillStyle=wk?wk.fg:T.chipFg; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font=`700 ${Math.round(bh*.66)}px ${F.num}`; ctx.fillText(String(hr.umaban),bx+bw/2,by+bh/2+bh*.04);
-  } else { // Thursday (出走確定, 枠順未定): venue + race number
-    rr(ctx,bx,by,bw,bh,h*.06); ctx.fillStyle=T.chipBg; ctx.fill();
-    ctx.fillStyle=T.chipFg; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
-    if(hr.venue){ const f=fit(ctx,hr.venue,900,F.body,bh*.24,bw*.86); ctx.fillText(f.t,bx+bw/2,by+bh*.34); }
-    if(hr.r){ const ns=Math.round(bh*.5); ctx.font=`700 ${ns}px ${F.num}`; const num=String(hr.r); const nw=ctx.measureText(num).width;
-      ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; const rw=ctx.measureText('R').width; const sx0=bx+bw/2-(nw+rw)/2;
-      ctx.textAlign='left'; ctx.font=`700 ${ns}px ${F.num}`; ctx.fillText(num,sx0,by+bh*.86); ctx.font=`700 ${Math.round(ns*.5)}px ${F.num}`; ctx.fillText('R',sx0+nw+1,by+bh*.86); }
-    if(!hr.venue&&!hr.r){ ctx.font=`700 ${Math.round(bh*.5)}px ${F.num}`; ctx.fillText('–',bx+bw/2,by+bh*.68); }
+    const us=hasUma?String(hr.umaban):'–'; const f=fit(ctx,us,700,F.num,bh*.62,uw*.88); ctx.fillText(f.t,ux+uw/2,by+bh/2+bh*.04);
+    nextX=ux+uw;
   }
   ctx.textBaseline='alphabetic'; ctx.textAlign='left';
-  const ss=h*.72, sx=bx+bw+ip*.8, sy=y+(h-ss)/2;
+  const ss=h*.72, sx=nextX+ip*.8, sy=y+(h-ss)/2;
   const simg=imgs[silksImgSrc(hr)];
   if(simg) drawSilksImg(ctx,simg,sx,sy,ss,T.halo); else drawSilks(ctx,sx,sy,ss,silksHex(hr),T.halo);
   const tx=sx+ss+ip*.8; let right=x+w-ip;
@@ -409,7 +411,7 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   else if(inlineBadge) inlineB(tx);
   cy+=chipH+g;
   const nm=fit(ctx,hr.name||'（馬名）',900,F.body,sB,tw); ctx.fillStyle=T.fg; ctx.fillText(nm.t,tx,cy+sB*.86); cy+=sB+g;
-  const lc= hasUma ? [(hr.venue||'')+(hr.r?hr.r+'R':''), hr.raceName].filter(Boolean).join('  ') : (hr.raceName||'');
+  const lc=hr.raceName||'';
   const c=fit(ctx,lc,700,F.body,sC,tw); ctx.fillStyle=T.fg; ctx.fillText(c.t,tx,cy+sC*.86); cy+=sC+g*.7;
   const ld=[hr.time?hr.time+' 発走':'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), hr.jockey].filter(Boolean).join('  /  ');
   const d=fit(ctx,ld,500,F.body,sD,tw); ctx.fillStyle=T.sub; ctx.fillText(d.t,tx,cy+sD*.86);
@@ -458,7 +460,7 @@ async function render(){
   if(!hs.length){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の愛馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
-    const entries=entriesOf(hs,S.sort); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
+    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.sort); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
     const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols; const GAP=.11, DAY=.5;
     const avail=bottom-top;
     let rowH=Infinity;
