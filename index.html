@@ -152,7 +152,7 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
       </div>
       <div class="checks"><label><input type="checkbox" id="p-mine">★ 登録した出資馬だけ表示</label></div>
       <div class="plist" id="p-list"></div>
-      <p class="hint">JRAの出馬表から、一口クラブ名義の馬を自動で集めています。木曜16時すぎに出走確定（馬番なし）、レース前日10時すぎに枠・馬番が入ります（反映まで30分ほどかかります）。★を付けた馬は、次の週から一覧の先頭に出て、まとめて追加できます。</p>
+      <p class="hint">JRAの出馬表から、一口クラブ名義の馬を自動で集めています。木曜16時すぎに出走確定（馬番なし）、レース前日10時すぎに枠・馬番が入ります（反映まで30分ほどかかります）。★を付けた馬は、次に出走する週に「まとめて追加」で一度に入れられます。</p>
     </section>
     <div class="editor-head">
       <h2>出走馬<b id="count">0</b></h2>
@@ -437,7 +437,7 @@ function drawDay(ctx,x,y,w,dh,e,T){
 function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   ctx.fillStyle=T.row; rr(ctx,x,y,w,h,h*.12); ctx.fill(); ctx.strokeStyle=T.rowLine; ctx.lineWidth=1.5; ctx.stroke();
   const ip=h*.11;
-  const showVenue=S.order!=='venue'; // with venue headings, the race block shows only the race number
+  const showVenue=true; // 競馬場の小見出しがあっても、レース番号の上に場名を表示する
   const bw=h*(showVenue?.5:.58), bh=h*.62, bx=x+ip, by=y+(h-bh)/2;
   const hasUma=!!hr.umaban;
   // venue + race number (always shown)
@@ -707,17 +707,18 @@ function renderPicker(){
   const club=$('#p-club').value, q=($('#p-q').value||'').trim(), mine=$('#p-mine').checked;
   const kata=s=>s.replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60));
   let xs=RACES.horses.filter(x=>(!club||x.clubId===club)&&(!q||x.name.includes(kata(q)))&&(!mine||isMine(x.horseId)));
-  xs=[...xs.filter(x=>isMine(x.horseId)),...xs.filter(x=>!isMine(x.horseId))];
-  xs.sort((a,b)=>a.date.localeCompare(b.date)); // 日付ごと（同じ日の中は★→出馬表順）
+  const rk={}; const rank=x=>{ if(!rk[x.date]) rk[x.date]=venueRanker((HELD&&HELD[x.date])||[]); return rk[x.date](x.venue); };
+  xs=xs.slice().sort((a,b)=>a.date.localeCompare(b.date)||rank(a)-rank(b)||a.r-b.r||(+a.umaban||99)-(+b.umaban||99));
   let html='', cur='';
   xs.forEach(x=>{
-    if(x.date!==cur){ cur=x.date; html+=`<div class="pday">${esc(md(x.date))}</div>`; }
+    const g=x.date+'|'+x.venue;
+    if(g!==cur){ cur=g; html+=`<div class="pday">${esc(md(x.date))}　${esc(x.venue)}</div>`; }
     const c=clubById(x.clubId), added=inList(x), scr=x.status?`<span class="scr">${esc(x.status)}</span> `:'';
     const num=x.umaban?` <b>${esc(x.umaban)}番</b>`:'';
     html+=`<div class="prow" data-k="${esc(x.key)}">${c&&c.img?`<img src="${esc(c.img)}" alt="">`:'<span></span>'}
-      <div style="min-width:0"><div class="pn">${scr}${esc(x.name)}</div><div class="pr">${esc(x.venue)}${x.r}R${num}　${esc(raceLabel(x))}　${esc(x.jockey)}　${esc(c?c.name:'')}</div></div>
+      <div style="min-width:0"><div class="pn">${scr}${esc(x.name)}</div><div class="pr"><b>${x.r}R</b>${num}　${esc(raceLabel(x))}　${esc(x.jockey)}　${esc(c?c.name:'')}</div></div>
       <button type="button" class="star" data-act="star" aria-pressed="${isMine(x.horseId)}" aria-label="出資馬として登録" title="出資馬として登録">${isMine(x.horseId)?'★':'☆'}</button>
-      <button type="button" class="add" data-act="add"${added?' disabled':''}>${added?'追加済み':'追加'}</button></div>`;
+      <button type="button" class="add" data-act="add"${added||x.status?' disabled':''}>${added?'追加済み':x.status?esc(x.status):'追加'}</button></div>`;
   });
   L.innerHTML=html||'<p class="pempty">条件に合う馬はいません。</p>';
   // banners
