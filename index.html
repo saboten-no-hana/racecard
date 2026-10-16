@@ -221,7 +221,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
         <label class="fld"><span>タイトル</span><input id="s-title" type="text"></label>
         <label class="fld"><span>アカウント名</span><input id="s-handle" type="text" placeholder="@your_account"></label>
       </div>
-      <label class="fld"><span>投稿文（「Xに投稿」でタイトルの次の行に入る。ハッシュタグなど）</span><input id="s-post" type="text" placeholder="#一口馬主"></label>
+      <label class="fld"><span>投稿文（「Xに投稿」でタイトルの次の行に入る説明やハッシュタグなど）</span><input id="s-post" type="text" placeholder="例: #一口馬主"></label>
       <fieldset class="fld"><legend>デザイン</legend>
         <div class="seg" id="s-theme">
           <label><input type="radio" name="theme" value="turf"><span>芝</span></label>
@@ -229,9 +229,10 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
           <label><input type="radio" name="theme" value="night"><span>ナイター</span></label>
           <label><input type="radio" name="theme" value="paper"><span>白</span></label>
           <label><input type="radio" name="theme" value="gold"><span>G1</span></label>
-          <label><input type="radio" name="theme" value="sakura"><span>桜</span></label>
+          <label><input type="radio" name="theme" value="sakura"><span>春</span></label>
           <label><input type="radio" name="theme" value="summer"><span>夏</span></label>
-          <label><input type="radio" name="theme" value="snow"><span>雪</span></label>
+          <label><input type="radio" name="theme" value="autumn"><span>秋</span></label>
+          <label><input type="radio" name="theme" value="winter"><span>冬</span></label>
           <label><input type="radio" name="theme" value="custom"><span>カスタム</span></label>
         </div>
       </fieldset>
@@ -308,7 +309,8 @@ const THEMES = {
   gold:{bg:'#12100c',bg2:'#030302',fg:'#f7f0de',sub:'#bdb29a',accent:'#d6b25e',accentInk:'#1a1405',row:'rgba(214,178,94,0.07)',rowLine:'rgba(214,178,94,0.24)',chipBg:'rgba(214,178,94,0.16)',chipFg:'#f1dca4',sat:'#9cc4ff',sun:'#ff9c8f',halo:'rgba(255,255,255,0.4)'},
   sakura:{bg:'#fbeef2',bg2:'#f5dbe4',fg:'#3b1f2b',sub:'#7a5563',accent:'#c8436f',accentInk:'#ffffff',row:'rgba(255,255,255,0.66)',rowLine:'rgba(120,40,70,0.14)',chipBg:'#3b1f2b',chipFg:'#ffffff',sat:'#2f5fb3',sun:'#c8436f',halo:null},
   summer:{bg:'#0b6a98',bg2:'#063f5e',fg:'#f4fbff',sub:'#b9dcee',accent:'#ffd25e',accentInk:'#1d1600',row:'rgba(255,255,255,0.09)',rowLine:'rgba(255,255,255,0.15)',chipBg:'rgba(255,255,255,0.17)',chipFg:'#f4fbff',sat:'#d3e8ff',sun:'#ffb4a8',halo:'rgba(255,255,255,0.45)'},
-  snow:{bg:'#edf3f8',bg2:'#d9e5f0',fg:'#142338',sub:'#4f6178',accent:'#2c6cb0',accentInk:'#ffffff',row:'rgba(255,255,255,0.72)',rowLine:'rgba(20,35,56,0.12)',chipBg:'#142338',chipFg:'#ffffff',sat:'#2c6cb0',sun:'#c0392b',halo:null}
+  autumn:{bg:'#6a2e17',bg2:'#2f130a',fg:'#fff5e8',sub:'#e6c7a6',accent:'#f2a93b',accentInk:'#2a1400',row:'rgba(255,238,215,0.08)',rowLine:'rgba(255,215,170,0.17)',chipBg:'rgba(255,238,215,0.16)',chipFg:'#fff5e8',sat:'#bfd8ff',sun:'#ffad9c',halo:'rgba(255,255,255,0.45)'},
+  winter:{bg:'#eef3f8',bg2:'#d5e1ed',fg:'#142338',sub:'#4f6178',accent:'#b3303e',accentInk:'#ffffff',row:'rgba(255,255,255,0.74)',rowLine:'rgba(20,35,56,0.12)',chipBg:'#142338',chipFg:'#ffffff',sat:'#2c6cb0',sun:'#b3303e',halo:null}
 };
 /* カスタム背景: 背景色・アクセント色・背景画像から配色を作る */
 const DEFAULT_CUSTOM={bg:'#1d3557',accent:'#f4a261',image:'',dim:45};
@@ -339,7 +341,7 @@ function sample(){
   const [sat,sun]=weekendDates();
   const H=(o)=>({id:uid(),isSample:true,name:'',clubId:'',ownerLabel:'',date:sat,venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null,...o});
   return {
-    settings:{title:'今週末の出資馬出走予定',postText:'#一口馬主',handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
+    settings:{title:'今週末の出資馬出走予定',postText:'',handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
     horses:[
       H({clubId:'carrot',name:'アオゾラノキセキ',date:sat,venue:'東京',r:'9',time:'14:25',raceName:'2歳1勝クラス',dist:'1800',jockey:'高原 翔',kuchi:'win'}),
       H({clubId:'silk',name:'ルミナスヴェール',date:sat,venue:'京都',r:'5',time:'12:20',raceName:'2歳新馬',dist:'2000',jockey:'水城 遼',kuchi:'wait'}),
@@ -355,6 +357,8 @@ try{ state = JSON.parse(localStorage.getItem(KEY)); }catch(e){ state=null; }
 if(!state || !Array.isArray(state.horses)) state = sample();
 state.settings = Object.assign(sample().settings, state.settings||{});
 if(state.settings.title==='今週末の出走予定') state.settings.title='今週末の出資馬出走予定'; /* 旧既定値のまま使っている人は新しい既定値へ */
+if(state.settings.postText==='#一口馬主') state.settings.postText=''; /* 投稿文の既定値は空欄に変更（10/17） */
+if(state.settings.theme==='snow') state.settings.theme='winter'; /* 雪は廃止（降雪時は開催中止になるため）→ 冬 */
 state.myHorses = Array.isArray(state.myHorses)?state.myHorses:[];
 state.myNames = state.myNames||{};
 state.settings.custom = {...DEFAULT_CUSTOM,...(state.settings.custom||{})};
@@ -483,12 +487,23 @@ function drawBg(ctx,W,H,T,theme,pad){
     const r=ctx.createRadialGradient(W*.88,H*.04,0,W*.88,H*.04,W*.55); r.addColorStop(0,'rgba(255,230,140,0.45)'); r.addColorStop(1,'rgba(255,230,140,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
     ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=Math.max(2,W*.003);
     for(let y=H*.18;y<H;y+=H*.045){ ctx.beginPath(); for(let x=0;x<=W;x+=W/60){ const yy=y+Math.sin(x/W*Math.PI*6+y)*H*.008; x?ctx.lineTo(x,yy):ctx.moveTo(x,yy); } ctx.stroke(); }
-  } else if(theme==='snow'){
+  } else if(theme==='autumn'){   /* 秋: 紅葉と銀杏の葉が舞う */
+    const g=ctx.createLinearGradient(0,0,W*.4,H); g.addColorStop(0,'#8a3b18'); g.addColorStop(.45,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    const r=ctx.createRadialGradient(W*.9,H*.02,0,W*.9,H*.02,W*.6); r.addColorStop(0,'rgba(255,190,90,0.30)'); r.addColorStop(1,'rgba(255,190,90,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+    const rnd=mulberry(23), s0=W/1080, cols=['224,72,40','240,120,40','236,170,50','200,50,40'];
+    const maple=(R)=>{ ctx.beginPath(); for(let k=0;k<=10;k++){ const a=-Math.PI/2+k*Math.PI/5, rr3=k%2?R*.42:R*(k===0||k===10?1:k===2||k===8?.92:.78); const px=Math.cos(a)*rr3, py=Math.sin(a)*rr3; k?ctx.lineTo(px,py):ctx.moveTo(px,py); } ctx.closePath(); ctx.fill(); ctx.fillRect(-R*.04,R*.3,R*.08,R*.55); };
+    const ginkgo=(R)=>{ ctx.beginPath(); ctx.moveTo(0,R*.55); ctx.lineTo(-R*.85,-R*.35); ctx.quadraticCurveTo(-R*.4,-R*.8,0,-R*.62); ctx.quadraticCurveTo(R*.4,-R*.8,R*.85,-R*.35); ctx.closePath(); ctx.fill(); ctx.fillRect(-R*.035,R*.5,R*.07,R*.45); };
+    for(let i=0;i<46;i++){ const x=rnd()*W, y=rnd()*H, R=(14+rnd()*22)*s0, a=rnd()*Math.PI*2, c=cols[Math.floor(rnd()*cols.length)], al=.10+rnd()*.20, gk=rnd()<.3;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(a); ctx.fillStyle=gk?`rgba(240,196,60,${al})`:`rgba(${c},${al})`; gk?ginkgo(R):maple(R); ctx.restore(); }
+  } else if(theme==='winter'){   /* 冬: 冬晴れの空と寒椿（雪は降らせない） */
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-    const rnd=mulberry(5), s0=W/1080;
-    for(let i=0;i<260;i++){ const rr2=(1.5+rnd()*5)*s0; ctx.fillStyle=`rgba(255,255,255,${.5+rnd()*.5})`; ctx.beginPath(); ctx.arc(rnd()*W,rnd()*H,rr2,0,Math.PI*2); ctx.fill(); }
-    ctx.strokeStyle='rgba(44,108,176,0.16)'; ctx.lineWidth=2;
-    for(let i=0;i<9;i++){ const x=rnd()*W, y=rnd()*H, r=(14+rnd()*22)*s0; ctx.save(); ctx.translate(x,y); for(let k=0;k<6;k++){ ctx.rotate(Math.PI/3); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-r); ctx.moveTo(0,-r*.55); ctx.lineTo(-r*.22,-r*.75); ctx.moveTo(0,-r*.55); ctx.lineTo(r*.22,-r*.75); ctx.stroke(); } ctx.restore(); }
+    const r=ctx.createRadialGradient(W*.9,H*.03,0,W*.9,H*.03,W*.55); r.addColorStop(0,'rgba(255,236,190,0.55)'); r.addColorStop(1,'rgba(255,236,190,0)'); ctx.fillStyle=r; ctx.fillRect(0,0,W,H);
+    const rnd=mulberry(31), s0=W/1080;   /* 寒椿は濃い紅で、タイトルと左の見出しを避けて右寄りに置く */
+    for(let i=0;i<10;i++){ const x=W*(.58+rnd()*.46), y=H*(.24+rnd()*.8), R=(18+rnd()*18)*s0, a=rnd()*Math.PI*2, al=.32+rnd()*.16;
+      ctx.save(); ctx.translate(x,y); ctx.rotate(a);
+      ctx.fillStyle=`rgba(28,86,52,${al})`; for(const sgn of [-1,1]){ ctx.beginPath(); ctx.ellipse(sgn*R*1.05,R*.55,R*.62,R*.28,sgn*-.5,0,Math.PI*2); ctx.fill(); }
+      ctx.fillStyle=`rgba(172,22,44,${al})`; for(let k=0;k<5;k++){ const pa=k*Math.PI*2/5; ctx.beginPath(); ctx.arc(Math.cos(pa)*R*.5,Math.sin(pa)*R*.5,R*.52,0,Math.PI*2); ctx.fill(); }
+      ctx.fillStyle=`rgba(236,186,50,${Math.min(1,al*1.8)})`; ctx.beginPath(); ctx.arc(0,0,R*.26,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   } else if(theme==='custom'){
     const c=T.custom||DEFAULT_CUSTOM, img=c.image&&imgCache[c.image];
     const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,T.bg); g.addColorStop(1,T.bg2); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
