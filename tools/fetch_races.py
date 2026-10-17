@@ -13,8 +13,14 @@ data/cache.json に記録して週をまたいで使い回す（個人馬主の�
 - リクエストの間は2秒以上あける
 
 使い方:
-  python3 tools/fetch_races.py            # JRAから取得
+  python3 tools/fetch_races.py            # JRAから1回取得
   python3 tools/fetch_races.py --offline DIR  # 保存済みHTMLで動作確認（DIR/*.html）
+  python3 tools/fetch_races.py --mode confirm --start 16:05 --until 18:30
+      # 木曜: 16:05（日本時間）まで待ち、出走確定の出馬表が出るまで5分おきに確認して取得
+  python3 tools/fetch_races.py --mode umaban --start 10:05 --until 12:00
+      # 金土日: 翌日分の馬番つき出馬表が出るまで5分おきに確認して取得（翌日に開催がなければ何もしない）
+  確認は軽く（トップと対象の開催1つ＝最大3リクエスト）行い、出ていたら全体を取得する。
+  全体を取得しても揃っていなければ（反映途中）、5分後に取り直す。--until を過ぎたら打ち切る。
 """
 import json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -52,6 +58,7 @@ class Fetcher:
         self.offline = offline
         self.count = 0
         self.last = 0.0
+        self.memo = {}   # 1回の試行の中だけで同じページを読み直さないため（試行ごとに空にする）
 
     def _decode(self, raw):
         m = re.search(rb'charset=["\']?([\w-]+)', raw[:3000])
@@ -61,6 +68,12 @@ class Fetcher:
         return raw.decode(enc, errors='replace')
 
     def get(self, cname, post=False, path='/JRADB/accessD.html'):
+        key = (cname, post, path)
+        if key not in self.memo:
+            self.memo[key] = self._get(cname, post, path)
+        return self.memo[key]
+
+    def _get(self, cname, post, path):
         if self.offline:
             path = os.path.join(self.offline, cname.replace('/', '_') + '.html')
             return open(path, encoding='utf-8').read() if os.path.exists(path) else ''
@@ -181,17 +194,69 @@ def links(html, prefix):
     return list(dict.fromkeys(found))
 
 # ---------------------------------------------------------------- main
+def arg(name, default=None):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv[:-1] else default
+
+def at_jst(hhmm):
+    h, m = map(int, hhmm.split(':'))
+    return datetime.now(JST).replace(hour=h, minute=m, second=0, microsecond=0)
+
 def main():
-    offline = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == '--offline' else None
+    offline = arg('--offline')
+    mode = arg('--mode')                     # None（1回だけ）/ confirm（木曜の出走確定）/ umaban（翌日の馬番）
+    interval = int(arg('--interval', '5')) * 60
     clubs = load_clubs()
     f = Fetcher(offline)
     os.makedirs(DATA, exist_ok=True)
+    if mode and not offline:
+        start = at_jst(arg('--start', '00:00'))
+        until = at_jst(arg('--until', '23:59'))
+        wait = (start - datetime.now(JST)).total_seconds()
+        if wait > 0:
+            print(f'{start:%H:%M} まで待機（{int(wait // 60)}分）', flush=True)
+            time.sleep(wait)
+    while True:
+        f.memo = {}
+        state = attempt(f, clubs, mode)
+        print(f'  → {state}（ここまでのリクエスト数: {f.count}）', flush=True)
+        if state != 'notready' or not mode or offline:
+            break
+        if datetime.now(JST).timestamp() + interval > until.timestamp():
+            print(f'{until:%H:%M} までに出馬表が揃わなかったので打ち切り（ページの形式が変わった可能性もある）', flush=True)
+            break
+        time.sleep(interval)
+    print(f'リクエスト数: {f.count}')
+    return 0
 
+def read_meeting(f, mt):
+    """開催1つ分: (レース一覧のページ, {R: 個別レースのcname}, まとめページのレース) を返す"""
+    rl = f.get(mt['cname'], post=True)
+    race_pages = {}
+    for c in links(rl, 'pw01dde'):
+        m = re.match(r'pw01dde\d{2}\d{2}\d{4}\d{2}\d{2}(\d{2})\d{8}', c)
+        if m:
+            race_pages[int(m.group(1))] = c
+    all_pages = links(rl, 'pw01des')
+    races = parse_race_tables(f.get(all_pages[0], post=True)) if all_pages else []
+    return race_pages, races
+
+FULL_DAY = 10   # 1開催でこのレース数以上に出走馬が載っていれば「出走確定の出馬表が出た」とみなす（GI週の木曜14時はGIだけ載る）
+
+def confirm_ready(races):
+    return sum(1 for r in races if r['horses']) >= FULL_DAY
+
+def umaban_ready(races):
+    """取消・除外を除く全出走馬に馬番が入っているか"""
+    hs = [h for r in races for h in r['horses'] if not h['status']]
+    return bool(hs) and all(h['umaban'] for h in hs)
+
+def attempt(f, clubs, mode):
+    """1回分の取得。'ready'（取得して揃っていた）/ 'notready'（未発表・反映途中）/ 'skip'（対象なし）を返す"""
     top = f.get('pw01dli00/F3', post=True)
     lists = links(top, 'pw01drl')
     if not lists:
         print('出馬表の開催一覧が見つかりませんでした（開催がない週、またはページの形式が変わった可能性）')
-        return 0
+        return 'notready' if mode == 'confirm' else 'skip'
     meetings = []
     for c in lists:
         m = re.match(r'pw01drl00(\d{2})\d{4}\d{2}\d{2}(\d{8})', c)
@@ -199,7 +264,27 @@ def main():
             d = m.group(2)
             meetings.append({'cname': c, 'venue': VENUES.get(m.group(1), m.group(1)), 'date': f'{d[:4]}-{d[4:6]}-{d[6:]}'})
     dates = sorted({x['date'] for x in meetings})
-    print('開催:', ', '.join(f"{x['date']} {x['venue']}" for x in meetings), flush=True)
+    print(datetime.now(JST).strftime('%H:%M'), '開催:', ', '.join(f"{x['date']} {x['venue']}" for x in meetings), flush=True)
+
+    # 発表されたかを軽く確認（対象の開催1つだけ読む）
+    today = datetime.now(JST).date().isoformat()
+    tomorrow = (datetime.now(JST).date() + timedelta(days=1)).isoformat()
+    if mode == 'confirm':
+        targets = [m for m in meetings if m['date'] > today]
+        if not targets:
+            print('今週末の開催がまだ載っていない')
+            return 'notready'
+        if not confirm_ready(read_meeting(f, targets[0])[1]):
+            print('出走確定の出馬表がまだ出ていない')
+            return 'notready'
+    elif mode == 'umaban':
+        targets = [m for m in meetings if m['date'] == tomorrow]
+        if not targets:
+            print(f'{tomorrow} の開催はないので何もしない')
+            return 'skip'
+        if not any(h['umaban'] for r in read_meeting(f, targets[0])[1] for h in r['horses']):
+            print('馬番つきの出馬表がまだ出ていない')
+            return 'notready'
 
     cache = {}
     if os.path.exists(CACHE):
@@ -212,15 +297,9 @@ def main():
 
     result = []
     stats = {'detail': 0, 'horse': 0}
+    complete = True
     for mt in meetings:
-        rl = f.get(mt['cname'], post=True)
-        race_pages = {}
-        for c in links(rl, 'pw01dde'):
-            m = re.match(r'pw01dde\d{2}\d{2}\d{4}\d{2}\d{2}(\d{2})\d{8}', c)
-            if m:
-                race_pages[int(m.group(1))] = c
-        all_pages = links(rl, 'pw01des')
-        races = parse_race_tables(f.get(all_pages[0], post=True)) if all_pages else []
+        race_pages, races = read_meeting(f, mt)
         if not races:  # まとめページがない場合は各レースのページを読む
             races = [r for c in race_pages.values() for r in parse_race_tables(f.get(c))]
         for race in races:
@@ -253,6 +332,10 @@ def main():
                     'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'status': h['status'],
                 })
         print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']}", flush=True)
+        if mode == 'confirm' and mt['date'] > today and not confirm_ready(races):
+            complete = False
+        if mode == 'umaban' and mt['date'] == tomorrow and not umaban_ready(races):
+            complete = False
 
     # 確認用: クラブらしい名義なのに一致しなかったもの
     hits = {}
@@ -277,8 +360,10 @@ def main():
         json.dump(out, open(OUT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         print(f'data/races.json を更新: {len(result)} 頭')
     json.dump(cache, open(CACHE, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'), sort_keys=True)
-    print(f'リクエスト数: {f.count}')
-    return 0
+    if not complete:
+        print('まだ揃っていない開催がある（JRAのサイトへの反映途中）')
+        return 'notready'
+    return 'ready'
 
 if __name__ == '__main__':
     sys.exit(main())
