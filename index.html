@@ -631,7 +631,7 @@ function layoutOf(hs,S){
     L.rowH=Math.min(avail/Math.max(...flow.map(colUnits)), L.colW*.27);
     L.flow=flow; return L;
   }
-  const cols=(mode==='wide'||n<=(mode==='tall'?6:8))?1:2; /* 縦長は6頭まで1列・7頭以上で2列（10/18〜。以前は9頭以上で2列）、正方形は9頭以上で2列 */
+  const cols=(mode==='wide'||n<=(mode==='tall'?5:8))?1:2; /* 縦長は5頭まで1列・6頭以上で2列（10/18〜。以前は9頭以上で2列）、正方形は9頭以上で2列 */
   L.colW=(W0-pad*2-gap*(cols-1))/cols;
   L.bands=bandsOf(entries,cols);
   const units=L.bands.reduce((u,b)=>u+bandUnits(b),0);
