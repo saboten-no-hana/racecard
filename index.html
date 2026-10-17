@@ -693,7 +693,7 @@ async function render(){
   y+=es+ts*.4;
   const tf=fit(ctx,S.title||'',400,F.display,ts,W-pad*2); ctx.fillStyle=T.fg; ctx.fillText(tf.t,pad,y+tf.s*.9); y+=ts*1.08;
   const rt=rangeText(hs);
-  const ct=S.showCount&&hs.length?`出資馬 ${hs.length}頭 出走`:''; /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
+  const ct=S.showCount&&hs.length?`${hs.length}頭`:''; /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
   if(rt||ct){ const ds=Math.round(ts*.46), by=y+ds*1.15; let cx=pad;
     if(rt){ ctx.font=`600 ${ds}px ${F.num}`; ctx.fillStyle=T.sub; ls(ctx,ds*.05); ctx.fillText(rt,cx,by); cx+=ctx.measureText(rt).width; ls(ctx,0); cx+=ds*.9; }
     if(ct){ if(rt){ ctx.fillStyle=T.rowLine; ctx.fillRect(cx-ds*.45-1,by-ds*.78,2,ds*.86); }
