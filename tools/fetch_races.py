@@ -132,9 +132,12 @@ def parse_header(cap):
             alt = g.get('alt', '')
             if re.search(r'G|J', alt):
                 grade = unicodedata.normalize('NFKC', alt).replace('Ⅰ', 'I')
+            elif 'リステッド' in alt:
+                grade = 'L'
             g.decompose()
         info['raceName'] = text(rn)
         info['grade'] = grade
+    info['cls'] = text(cap.select_one('.cell.class'))   # 新馬／未勝利／1勝クラス／2勝クラス／3勝クラス／オープン
     c = text(cap.select_one('.cell.course'))
     m = re.search(r'([\d,]+)\s*メートル', c)
     if m:
@@ -354,7 +357,7 @@ def attempt(f, clubs, mode, ctx):
                     'key': f"{mt['date']}|{mt['venue']}|{rno}|{h['horseId']}", 'horseId': h['horseId'], 'name': h['name'],
                     'clubId': club,
                     'date': race.get('date', mt['date']), 'venue': race.get('venue', mt['venue']), 'r': rno,
-                    'time': race.get('time', ''), 'raceName': race.get('raceName', ''), 'grade': race.get('grade', ''),
+                    'time': race.get('time', ''), 'raceName': race.get('raceName', ''), 'grade': race.get('grade', ''), 'cls': race.get('cls', ''),
                     'surface': race.get('surface', ''), 'dist': race.get('dist', ''),
                     'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'status': h['status'],
                 })
