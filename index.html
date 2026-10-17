@@ -217,7 +217,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
   </section>
 
   <aside class="preview" aria-label="画像プレビュー">
-    <div class="frame"><img id="out" alt="生成した今週末の出走予定画像"></div>
+    <div class="frame"><img id="out" alt="生成した今週の出走予定画像"></div>
     <div class="out-actions">
       <button class="primary" id="dl" type="button">画像を保存</button>
       <button id="copy" type="button">画像をコピー</button>
@@ -359,7 +359,7 @@ function sample(){
   const [sat,sun]=weekendDates();
   const H=(o)=>({id:uid(),isSample:true,name:'',clubId:'',ownerLabel:'',date:sat,venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null,...o});
   return {
-    settings:{title:'今週末の出資馬出走予定',post:null,handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
+    settings:{title:'今週の出走予定',post:null,handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
     horses:[
       H({clubId:'carrot',name:'アオゾラノキセキ',date:sat,venue:'東京',r:'9',time:'14:25',raceName:'2歳1勝クラス',dist:'1800',jockey:'高原 翔',kuchi:'win'}),
       H({clubId:'silk',name:'ルミナスヴェール',date:sat,venue:'京都',r:'5',time:'12:20',raceName:'2歳新馬',dist:'2000',jockey:'水城 遼',kuchi:'wait'}),
@@ -374,7 +374,7 @@ let state;
 try{ state = JSON.parse(localStorage.getItem(KEY)); }catch(e){ state=null; }
 if(!state || !Array.isArray(state.horses)) state = sample();
 state.settings = Object.assign(sample().settings, state.settings||{});
-if(state.settings.title==='今週末の出走予定') state.settings.title='今週末の出資馬出走予定'; /* 旧既定値のまま使っている人は新しい既定値へ */
+if(['今週末の出走予定','今週末の出資馬出走予定'].includes(state.settings.title)) state.settings.title='今週の出走予定'; /* 旧既定値のまま使っている人は新しい既定値へ（10/18〜「今週の出走予定」） */
 /* 投稿文: post が null ならタイトルと同じ文（タイトルに連動）。旧形式 postText（タイトルの次の行に付ける文）は全文に移す */
 if('postText' in state.settings){ const t=(state.settings.postText||'').trim(); state.settings.post = t && t!=='#一口馬主' ? (state.settings.title||'')+'\n'+t : null; delete state.settings.postText; }
 if(typeof state.settings.post!=='string'||!state.settings.post.trim()) state.settings.post=null;
@@ -572,8 +572,9 @@ function splitCols(entries,cols){
   if(b.length && b[0].t==='horse'){ // carry the day / venue headings over to the second column
     const lastD=[...a].reverse().find(e=>e.t==='day'), lastV=[...a].reverse().find(e=>e.t==='venue');
     const ia=a.lastIndexOf(lastD), iv=a.lastIndexOf(lastV);
-    const pre=[]; if(lastD) pre.push({...lastD,cont:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true}); b=[...pre,...b]; }
-  else if(b.length && b[0].t==='venue'){ const lastD=[...a].reverse().find(e=>e.t==='day'); if(lastD) b=[{...lastD,cont:true},...b]; }
+    const pre=[]; if(lastD) pre.push({...lastD,cont:true,blank:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true}); b=[...pre,...b]; }
+  else if(b.length && b[0].t==='venue'){ const lastD=[...a].reverse().find(e=>e.t==='day'); if(lastD) b=[{...lastD,cont:true,blank:true},...b]; }
+  /* 同じ日が2列目に続く時、2列目の頭の日付は出さない（blank: 高さだけ取って左の列と行の位置をそろえる。10/18） */
   return [a,b];
 }
 
@@ -586,6 +587,7 @@ function drawVenue(ctx,x,y,w,vh,e,T){
   if(e.cont){ ctx.font=`700 ${Math.round(s*.66)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.fillText('　つづき',cx,base); }
 }
 function drawDay(ctx,x,y,w,dh,e,T){
+  if(e.blank) return;
   const s=Math.round(clamp(dh*.6,12,34)); const base=y+dh*.72; const p=parseDate(e.date);
   ctx.textAlign='left'; ctx.textBaseline='alphabetic'; let cx=x;
   ctx.font=`900 ${s}px ${F.body}`;
@@ -677,7 +679,7 @@ async function render(){
   const hs=state.horses;
   const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
   try{ await Promise.all([
-    document.fonts.load(`40px "IPAexGothic"`,txt+'0123456789.–RSATSUNMONWEDTHUFRIWEEKENDRUNNERS@_')
+    document.fonts.load(`40px "IPAexGothic"`,txt+'0123456789.–RSATSUNMONWEDTHUFRI@_')
   ]); }catch(e){}
   const imgs={}; await Promise.all(hs.filter(h=>h.photo).map(async h=>{ imgs[h.photo]=await loadImg(h.photo); }));
   await Promise.all([...new Set(hs.map(silksImgSrc).filter(Boolean))].map(async src=>{ const i=await loadImg(src); if(i&&i.naturalWidth) imgs[src]=i; }));
@@ -686,18 +688,17 @@ async function render(){
   const pad=Math.round(W*.05);
   drawBg(ctx,W,H,T,S.theme,pad);
 
-  const ts=Math.round(Math.min(W*.06,H*.068)), es=Math.round(ts*.34); let y=pad;
+  const ts=Math.round(Math.min(W*.06,H*.068)); let y=pad;
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-  ctx.font=`700 ${es}px ${F.num}`; ctx.fillStyle=T.accent; ls(ctx,es*.28); ctx.fillText('WEEKEND RUNNERS',pad,y+es); ls(ctx,0);
-  if(S.handle){ const f=fit(ctx,S.handle,700,F.body,es*1.1,W*.45); ctx.fillStyle=T.sub; ctx.textAlign='right'; ctx.fillText(f.t,W-pad,y+es); ctx.textAlign='left'; }
-  y+=es+ts*.4;
+  /* 見出しの英字（WEEKEND RUNNERS）は10/18に廃止。アカウント名は日付の行の右端へ */
   const tf=fit(ctx,S.title||'',400,F.display,ts,W-pad*2); ctx.fillStyle=T.fg; ctx.fillText(tf.t,pad,y+tf.s*.9); y+=ts*1.08;
   const rt=rangeText(hs);
   const ct=S.showCount&&hs.length?`${hs.length}頭`:''; /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
-  if(rt||ct){ const ds=Math.round(ts*.46), by=y+ds*1.15; let cx=pad;
+  if(rt||ct||S.handle){ const ds=Math.round(ts*.46), by=y+ds*1.15; let cx=pad;
     if(rt){ ctx.font=`600 ${ds}px ${F.num}`; ctx.fillStyle=T.sub; ls(ctx,ds*.05); ctx.fillText(rt,cx,by); cx+=ctx.measureText(rt).width; ls(ctx,0); cx+=ds*.9; }
     if(ct){ if(rt){ ctx.fillStyle=T.rowLine; ctx.fillRect(cx-ds*.45-1,by-ds*.78,2,ds*.86); }
-      const f=fit(ctx,ct,700,F.body,ds,W-pad-cx); ctx.fillStyle=T.fg; ctx.fillText(f.t,cx,by); }
+      const f=fit(ctx,ct,700,F.body,ds,W-pad-cx); ctx.fillStyle=T.fg; ctx.fillText(f.t,cx,by); cx+=ctx.measureText(f.t).width+ds*.9; }
+    if(S.handle){ const f=fit(ctx,S.handle,700,F.body,ds*.8,Math.max(W*.18,W-pad-cx)); ctx.fillStyle=T.sub; ctx.textAlign='right'; ctx.fillText(f.t,W-pad,by); ctx.textAlign='left'; }
     y+=ds*1.5; }
   y+=ts*.3; const rw=W*.09; ctx.fillStyle=T.accent; ctx.fillRect(pad,y,rw,Math.max(3,ts*.07)); ctx.fillStyle=T.rowLine; ctx.fillRect(pad+rw+10,y+Math.max(3,ts*.07)/2-1,W-pad*2-rw-10,2);
   const top=y+ts*.55;
