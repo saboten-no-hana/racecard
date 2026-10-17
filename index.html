@@ -572,13 +572,14 @@ function splitCols(entries,cols){
   if(b.length && b[0].t==='horse'){ // carry the day / venue headings over to the second column
     const lastD=[...a].reverse().find(e=>e.t==='day'), lastV=[...a].reverse().find(e=>e.t==='venue');
     const ia=a.lastIndexOf(lastD), iv=a.lastIndexOf(lastV);
-    const pre=[]; if(lastD) pre.push({...lastD,cont:true,blank:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true}); b=[...pre,...b]; }
+    const pre=[]; if(lastD) pre.push({...lastD,cont:true,blank:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true,blank:true}); b=[...pre,...b]; }
   else if(b.length && b[0].t==='venue'){ const lastD=[...a].reverse().find(e=>e.t==='day'); if(lastD) b=[{...lastD,cont:true,blank:true},...b]; }
-  /* 同じ日が2列目に続く時、2列目の頭の日付は出さない（blank: 高さだけ取って左の列と行の位置をそろえる。10/18） */
+  /* 同じ日・同じ競馬場が2列目に続く時、2列目の頭の日付・競馬場名は出さない（blank: 高さだけ取って左の列と行の位置をそろえる。10/18） */
   return [a,b];
 }
 
 function drawVenue(ctx,x,y,w,vh,e,T){
+  if(e.blank) return;
   const s=Math.round(clamp(vh*.66,12,32)); const base=y+vh*.76;
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.fillStyle=T.accent; ctx.fillRect(x+2,base-s*.86,Math.max(3,s*.16),s*.92);
