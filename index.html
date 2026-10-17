@@ -900,7 +900,14 @@ $('#post').addEventListener('click',async()=>{ const st=$('#status'); st.textCon
 /* ---------- 今週の出走馬（data/races.json） ---------- */
 let RACES=null, HELD=null;
 const isMine=id=>state.myHorses.includes(id);
-function raceLabel(x){ return x.raceName+(x.grade?`（${x.grade}）`:''); }
+/* レース名の後ろに格を付ける（10/18〜）: 重賞（GII）・リステッド（L）・オープン特別（OP）・条件特別（2勝クラス）。
+   一般戦（3歳以上1勝クラス・2歳未勝利・メイクデビュー〇〇）はレース名に格が入っているので付けない */
+function raceLabel(x){
+  if(x.grade) return `${x.raceName}（${x.grade}）`;
+  const c=x.cls||'';
+  if(!c||c==='新馬'||c==='未勝利'||x.raceName.includes(c)) return x.raceName;
+  return `${x.raceName}（${c==='オープン'?'OP':c}）`;
+}
 function fromData(x){ return {id:uid(),horseId:x.horseId,name:x.name,clubId:x.clubId,ownerLabel:'',date:x.date,venue:x.venue,r:String(x.r),time:x.time,
   raceName:raceLabel(x),surface:x.surface||'芝',dist:String(x.dist||''),jockey:x.jockey,waku:x.waku,umaban:x.umaban,kuchi:'none',photo:'',customSilks:null}; }
 const inList=x=>state.horses.some(h=>h.horseId===x.horseId&&h.date===x.date);
