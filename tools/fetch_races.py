@@ -253,15 +253,18 @@ def read_meeting(f, mt):
     return race_pages, races
 
 # 出馬表は一斉ではなく少しずつ載ることがあるので、揃ったかを確かめてから終える
-RACES_PER_DAY = 12   # 1開催のレース数。これだけ出走馬が載れば揃った
-MIN_STABLE = 10      # 12に届かなくても、10レース以上で前回（5分前）から増えていなければ揃ったとみなす（11R以下の日の保険）
+# 1日のレース数は12とは限らない（2027年夏の新潟・中京は1日7競走）ので、
+# 12レース載るか、出走馬の載ったレース数が前回（5分前）から増えていなければ揃ったとみなす
+RACES_PER_DAY = 12
 
 def runners(races):
     return sum(1 for r in races if r['horses'])
 
-def confirm_complete(key, races, prev):
+def confirm_complete(key, race_pages, races, prev):
     n = runners(races); before = prev.get(key); prev[key] = n
-    return n >= RACES_PER_DAY or (n >= MIN_STABLE and n == before)
+    if len(race_pages) > n:   # レース一覧にあるのに出走馬が載っていないレースがある
+        return False
+    return n >= RACES_PER_DAY or (n > 0 and n == before)
 
 def umaban_complete(races):
     """取消・除外を除く全出走馬に馬番が入っているか"""
@@ -357,7 +360,7 @@ def attempt(f, clubs, mode, ctx):
                 })
         print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']}", flush=True)
         if mt in check:
-            ok = confirm_complete(mt['cname'], races, ctx['prev']) if mode == 'confirm' else umaban_complete(races)
+            ok = confirm_complete(mt['cname'], race_pages, races, ctx['prev']) if mode == 'confirm' else umaban_complete(races)
             if not ok:
                 got = runners(races) if mode == 'confirm' else sum(1 for r in races if r['horses'] and all(h['umaban'] or h['status'] for h in r['horses']))
                 print(f"    {mt['date']} {mt['venue']} はまだ揃っていない（{'出走馬' if mode == 'confirm' else '馬番'}の載ったレース {got}）", flush=True)
