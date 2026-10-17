@@ -15,12 +15,14 @@ data/cache.json に記録して週をまたいで使い回す（個人馬主の�
 使い方:
   python3 tools/fetch_races.py            # JRAから1回取得
   python3 tools/fetch_races.py --offline DIR  # 保存済みHTMLで動作確認（DIR/*.html）
-  python3 tools/fetch_races.py --mode confirm --start 16:05 --until 18:30
-      # 木曜: 16:05（日本時間）まで待ち、出走確定の出馬表が出るまで5分おきに確認して取得
+  python3 tools/fetch_races.py --mode confirm --start 16:05 --until 18:30 [--watch-until 16:35]
+      # 16:05（日本時間）から、races.json にない開催日の出走確定の出馬表が載るのを5分おきに確認して取得。
+      # 木曜は週末分を 18:30 まで待つ。ほかの曜日は年末年始・代替競馬などの平日開催に備えて
+      # --watch-until まで確認し、何も載らなければ終了（トップを数回読むだけ）
   python3 tools/fetch_races.py --mode umaban --start 10:05 --until 12:00
-      # 金土日: 翌日分の馬番つき出馬表が出るまで5分おきに確認して取得（翌日に開催がなければ何もしない）
+      # 翌日分の馬番つき出馬表が出るまで5分おきに確認して取得。翌日に開催がなく、新しい開催日もなければ何もしない
   確認は軽く（トップと対象の開催1つ＝最大3リクエスト）行い、出ていたら全体を取得する。
-  全体を取得しても揃っていなければ（反映途中）、5分後に取り直す。--until を過ぎたら打ち切る。
+  出馬表は少しずつ載ることがあるので、全体を取得しても揃っていなければ5分後に取り直す。
 """
 import json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -203,25 +205,35 @@ def at_jst(hhmm):
 
 def main():
     offline = arg('--offline')
-    mode = arg('--mode')                     # None（1回だけ）/ confirm（木曜の出走確定）/ umaban（翌日の馬番）
+    mode = arg('--mode')                     # None（1回だけ）/ confirm（新しい開催日の出走確定）/ umaban（翌日の馬番）
     interval = int(arg('--interval', '5')) * 60
     clubs = load_clubs()
     f = Fetcher(offline)
     os.makedirs(DATA, exist_ok=True)
+    # 起動時点で races.json にある開催日。これにない日が出馬表トップに載ったら「新しい開催日」
+    known = set()
+    if os.path.exists(OUT):
+        known = {d['date'] for d in json.load(open(OUT, encoding='utf-8')).get('days', [])}
+    ctx = {'known': known, 'prev': {}}
     if mode and not offline:
         start = at_jst(arg('--start', '00:00'))
         until = at_jst(arg('--until', '23:59'))
+        watch = at_jst(arg('--watch-until')) if arg('--watch-until') else until
         wait = (start - datetime.now(JST)).total_seconds()
         if wait > 0:
             print(f'{start:%H:%M} まで待機（{int(wait // 60)}分）', flush=True)
             time.sleep(wait)
     while True:
         f.memo = {}
-        state = attempt(f, clubs, mode)
+        state = attempt(f, clubs, mode, ctx)
         print(f'  → {state}（ここまでのリクエスト数: {f.count}）', flush=True)
-        if state != 'notready' or not mode or offline:
+        if state not in ('waiting', 'notready') or not mode or offline:
             break
-        if datetime.now(JST).timestamp() + interval > until.timestamp():
+        nxt = datetime.now(JST).timestamp() + interval
+        if state == 'waiting' and nxt > watch.timestamp():
+            print(f'{watch:%H:%M} までに新しい出馬表は出なかった', flush=True)
+            break
+        if nxt > until.timestamp():
             print(f'{until:%H:%M} までに出馬表が揃わなかったので打ち切り（ページの形式が変わった可能性もある）', flush=True)
             break
         time.sleep(interval)
@@ -229,7 +241,7 @@ def main():
     return 0
 
 def read_meeting(f, mt):
-    """開催1つ分: (レース一覧のページ, {R: 個別レースのcname}, まとめページのレース) を返す"""
+    """開催1つ分: ({R: 個別レースのcname}, まとめページのレース) を返す"""
     rl = f.get(mt['cname'], post=True)
     race_pages = {}
     for c in links(rl, 'pw01dde'):
@@ -240,23 +252,30 @@ def read_meeting(f, mt):
     races = parse_race_tables(f.get(all_pages[0], post=True)) if all_pages else []
     return race_pages, races
 
-FULL_DAY = 10   # 1開催でこのレース数以上に出走馬が載っていれば「出走確定の出馬表が出た」とみなす（GI週の木曜14時はGIだけ載る）
+# 出馬表は一斉ではなく少しずつ載ることがあるので、揃ったかを確かめてから終える
+RACES_PER_DAY = 12   # 1開催のレース数。これだけ出走馬が載れば揃った
+MIN_STABLE = 10      # 12に届かなくても、10レース以上で前回（5分前）から増えていなければ揃ったとみなす（11R以下の日の保険）
 
-def confirm_ready(races):
-    return sum(1 for r in races if r['horses']) >= FULL_DAY
+def runners(races):
+    return sum(1 for r in races if r['horses'])
 
-def umaban_ready(races):
+def confirm_complete(key, races, prev):
+    n = runners(races); before = prev.get(key); prev[key] = n
+    return n >= RACES_PER_DAY or (n >= MIN_STABLE and n == before)
+
+def umaban_complete(races):
     """取消・除外を除く全出走馬に馬番が入っているか"""
     hs = [h for r in races for h in r['horses'] if not h['status']]
     return bool(hs) and all(h['umaban'] for h in hs)
 
-def attempt(f, clubs, mode):
-    """1回分の取得。'ready'（取得して揃っていた）/ 'notready'（未発表・反映途中）/ 'skip'（対象なし）を返す"""
+def attempt(f, clubs, mode, ctx):
+    """1回分の取得。返り値:
+    'ready'（取得して揃っていた）/ 'notready'（取得したが反映途中）/ 'waiting'（まだ発表されていない）/ 'skip'（対象なし）"""
     top = f.get('pw01dli00/F3', post=True)
     lists = links(top, 'pw01drl')
     if not lists:
         print('出馬表の開催一覧が見つかりませんでした（開催がない週、またはページの形式が変わった可能性）')
-        return 'notready' if mode == 'confirm' else 'skip'
+        return 'waiting' if mode == 'confirm' else 'skip'
     meetings = []
     for c in lists:
         m = re.match(r'pw01drl00(\d{2})\d{4}\d{2}\d{2}(\d{8})', c)
@@ -269,22 +288,27 @@ def attempt(f, clubs, mode):
     # 発表されたかを軽く確認（対象の開催1つだけ読む）
     today = datetime.now(JST).date().isoformat()
     tomorrow = (datetime.now(JST).date() + timedelta(days=1)).isoformat()
+    new_dates = sorted(d for d in dates if d > today and d not in ctx['known'])
+    check = []   # 揃ったかを確かめる開催
     if mode == 'confirm':
-        targets = [m for m in meetings if m['date'] > today]
-        if not targets:
-            print('今週末の開催がまだ載っていない')
-            return 'notready'
-        if not confirm_ready(read_meeting(f, targets[0])[1]):
+        # 新しい開催日（木曜の週末分、年末年始・代替競馬などの平日開催も）が載るのを待つ
+        check = [m for m in meetings if m['date'] in new_dates]
+        if not check:
+            print('新しい開催日の出馬表はまだ載っていない')
+            return 'waiting'
+        if runners(read_meeting(f, check[0])[1]) < 2:   # GI週の木曜14時はGIの1レースだけ載る
             print('出走確定の出馬表がまだ出ていない')
-            return 'notready'
+            return 'waiting'
     elif mode == 'umaban':
-        targets = [m for m in meetings if m['date'] == tomorrow]
-        if not targets:
-            print(f'{tomorrow} の開催はないので何もしない')
-            return 'skip'
-        if not any(h['umaban'] for r in read_meeting(f, targets[0])[1] for h in r['horses']):
+        check = [m for m in meetings if m['date'] == tomorrow]
+        if not check:
+            if not new_dates:
+                print(f'{tomorrow} の開催も新しい開催日もないので何もしない')
+                return 'skip'
+            print('新しい開催日があるので取得:', ', '.join(new_dates))
+        elif not any(h['umaban'] for r in read_meeting(f, check[0])[1] for h in r['horses']):
             print('馬番つきの出馬表がまだ出ていない')
-            return 'notready'
+            return 'waiting'
 
     cache = {}
     if os.path.exists(CACHE):
@@ -332,10 +356,12 @@ def attempt(f, clubs, mode):
                     'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'status': h['status'],
                 })
         print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']}", flush=True)
-        if mode == 'confirm' and mt['date'] > today and not confirm_ready(races):
-            complete = False
-        if mode == 'umaban' and mt['date'] == tomorrow and not umaban_ready(races):
-            complete = False
+        if mt in check:
+            ok = confirm_complete(mt['cname'], races, ctx['prev']) if mode == 'confirm' else umaban_complete(races)
+            if not ok:
+                got = runners(races) if mode == 'confirm' else sum(1 for r in races if r['horses'] and all(h['umaban'] or h['status'] for h in r['horses']))
+                print(f"    {mt['date']} {mt['venue']} はまだ揃っていない（{'出走馬' if mode == 'confirm' else '馬番'}の載ったレース {got}）", flush=True)
+                complete = False
 
     # 確認用: クラブらしい名義なのに一致しなかったもの
     hits = {}
