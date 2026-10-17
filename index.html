@@ -209,10 +209,9 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
       <button class="primary" id="add" type="button">＋ 馬を追加</button>
     </div>
     <div id="list"></div>
-    <p class="note">最初に入っているのは架空のサンプル馬で、今週の出走馬を追加すると消えます。勝負服は各クラブの登録内容をもとに描いていますが、違っていたら「勝負服を設定」で直せます。写真は自分で撮影したものを使ってください（クラブ提供写真の転載は各クラブの規約を確認）。</p>
+    <p class="note">勝負服は各クラブの登録内容をもとに描いていますが、違っていたら「勝負服を設定」で直せます。写真は自分で撮影したものを使ってください（クラブ提供写真の転載は各クラブの規約を確認）。</p>
     <div class="foot-actions">
       <button class="ghost" id="clear" type="button">すべて消す</button>
-      <button class="ghost" id="sample" type="button">サンプルに戻す</button>
     </div>
   </section>
 
@@ -355,25 +354,16 @@ function weekendDates(){ // this weekend if today is Sat/Sun, otherwise the comi
   const sat=new Date(d); sat.setDate(d.getDate()+(wd===0?-1:(6-wd)));
   const sun=new Date(sat); sun.setDate(sat.getDate()+1); return [ymd(sat),ymd(sun)];
 }
-function sample(){
-  const [sat,sun]=weekendDates();
-  const H=(o)=>({id:uid(),isSample:true,name:'',clubId:'',ownerLabel:'',date:sat,venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null,...o});
-  return {
-    settings:{title:'今週の出走予定',post:null,handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true},
-    horses:[
-      H({clubId:'carrot',name:'アオゾラノキセキ',date:sat,venue:'東京',r:'9',time:'14:25',raceName:'2歳1勝クラス',dist:'1800',jockey:'高原 翔',kuchi:'win'}),
-      H({clubId:'silk',name:'ルミナスヴェール',date:sat,venue:'京都',r:'5',time:'12:20',raceName:'2歳新馬',dist:'2000',jockey:'水城 遼',kuchi:'wait'}),
-      H({clubId:'sunday',name:'シラユキノミチ',date:sun,venue:'東京',r:'11',time:'15:45',raceName:'秋嶺ステークス',dist:'1600',jockey:'大沢 健太',kuchi:'lose'}),
-      H({clubId:'tokyo',name:'ミモザブーケ',date:sun,venue:'新潟',r:'7',time:'13:30',raceName:'3歳以上1勝クラス',surface:'ダ',dist:'1800',jockey:'森下 葵'})
-    ]
-  };
+function defaults(){ /* 初期状態（サンプル馬は10/18に廃止） */
+  return { settings:{title:'今週の出走予定',post:null,handle:'@your_account',theme:'turf',size:'4:5',showKuchi:true,order:'venue',showCount:true}, horses:[] };
 }
 
 const KEY='racecard.v2';
 let state;
 try{ state = JSON.parse(localStorage.getItem(KEY)); }catch(e){ state=null; }
-if(!state || !Array.isArray(state.horses)) state = sample();
-state.settings = Object.assign(sample().settings, state.settings||{});
+if(!state || !Array.isArray(state.horses)) state = defaults();
+state.horses = state.horses.filter(h=>!h.isSample); /* 以前のサンプル馬が残っていれば消す */
+state.settings = Object.assign(defaults().settings, state.settings||{});
 if(['今週末の出走予定','今週末の出資馬出走予定'].includes(state.settings.title)) state.settings.title='今週の出走予定'; /* 旧既定値のまま使っている人は新しい既定値へ（10/18〜「今週の出走予定」） */
 /* 投稿文: post が null ならタイトルと同じ文（タイトルに連動）。旧形式 postText（タイトルの次の行に付ける文）は全文に移す */
 if('postText' in state.settings){ const t=(state.settings.postText||'').trim(); state.settings.post = t && t!=='#一口馬主' ? (state.settings.title||'')+'\n'+t : null; delete state.settings.postText; }
@@ -576,20 +566,11 @@ function bandsOf(entries,cols){
     if(e.t==='day'){ day=e; cur=null; }
     else if(e.t==='venue'){ cur={day,venue:e,items:[]}; day=null; bands.push(cur); }
     else { if(!cur){ cur={day,venue:null,items:[]}; day=null; bands.push(cur); } cur.items.push(e); } });
-  return bands.map(b=>({day:b.day,venue:b.venue,cols:splitHalf(b.items)}));
+  return bands.map(b=>({day:b.day,venue:b.venue,cols:splitRows(b.items)}));
 }
 const bandUnits=b=>(b.day?DAY:0)+(b.venue?VEN:0)+Math.max(...b.cols.map(colUnits));
-function splitHalf(entries){
-  const n=entries.filter(e=>e.t==='horse').length, half=Math.ceil(n/2); let c=0, idx=0;
-  for(;idx<entries.length;idx++){ if(entries[idx].t==='horse' && ++c===half){ idx++; break; } }
-  const a=entries.slice(0,idx); let b=entries.slice(idx);
-  if(b.length && b[0].t==='horse'){ // carry the day / venue headings over to the second column
-    const lastD=[...a].reverse().find(e=>e.t==='day'), lastV=[...a].reverse().find(e=>e.t==='venue');
-    const ia=a.lastIndexOf(lastD), iv=a.lastIndexOf(lastV);
-    const pre=[]; if(lastD) pre.push({...lastD,cont:true,blank:true}); if(lastV && iv>ia) pre.push({...lastV,cont:true,blank:true}); b=[...pre,...b]; }
-  else if(b.length && b[0].t==='venue'){ const lastD=[...a].reverse().find(e=>e.t==='day'); if(lastD) b=[{...lastD,cont:true,blank:true},...b]; }
-  /* 同じ日・同じ競馬場が2列目に続く時、2列目の頭の日付・競馬場名は出さない（blank: 高さだけ取って左の列と行の位置をそろえる。10/18） */
-  return [a,b];
+function splitRows(items){ /* 段の中は左→右→次の行の順に並べる（1 2 / 3 4 / 5。10/18〜。以前は左の列を上から埋めていた） */
+  return [items.filter((_,i)=>i%2===0),items.filter((_,i)=>i%2===1)];
 }
 
 function drawVenue(ctx,x,y,w,vh,e,T){
@@ -816,6 +797,7 @@ function refreshCard(card,h){
   const src=silksImgSrc(h); if(src) loadImg(src).then(i=>{ if(i&&i.naturalWidth&&silksImgSrc(h)===src){ x.clearRect(0,0,96,96); drawSilksImg(x,i,4,4,88,null); } });
 }
 function renderList(openId){
+  setTimeout(()=>{ if(RACES) renderPicker(); }); /* 削除・すべて消すのあと、候補一覧の「追加済み」を外す */
   const list=$('#list'); const open=new Set([...list.querySelectorAll('details.horse[open]')].map(d=>d.dataset.id)); if(openId) open.add(openId);
   list.innerHTML=state.horses.map(h=>cardHTML(h,open.has(h.id))).join('');
   list.querySelectorAll('.horse').forEach(card=>refreshCard(card,findH(card.dataset.id)));
@@ -847,7 +829,6 @@ $('#add').addEventListener('click',()=>{ const last=state.horses[state.horses.le
   const card=document.querySelector(`.horse[data-id="${h.id}"]`); card.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); card.querySelector('[data-f="name"]').focus({preventScroll:true}); });
 const clearBtn=$('#clear');
 clearBtn.addEventListener('click',()=>{ if(clearBtn.dataset.armed){ state.horses=[]; delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; renderList(); schedule(); save(); } else { clearBtn.dataset.armed='1'; clearBtn.textContent='もう一度押すと全馬を消します'; setTimeout(()=>{ delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; },3000); } });
-$('#sample').addEventListener('click',()=>{ const old=state, keep=old.settings; state=sample(); state.settings={...state.settings,theme:keep.theme,size:keep.size,handle:keep.handle,custom:keep.custom}; state.myHorses=old.myHorses||[]; state.myNames=old.myNames||{}; state.myPending=old.myPending||[]; renderList(); syncSettings(); syncCustom(); schedule(); save(); });
 
 function syncSettings(){ const S=state.settings;
   $('#s-title').value=S.title; $('#s-handle').value=S.handle; $('#s-post').value=S.post??S.title;
@@ -925,7 +906,6 @@ function fromData(x){ return {id:uid(),horseId:x.horseId,name:x.name,clubId:x.cl
 const inList=x=>state.horses.some(h=>h.horseId===x.horseId&&h.date===x.date);
 function addFromData(xs){
   if(!xs.length) return;
-  state.horses=state.horses.filter(h=>!h.isSample);
   xs.forEach(x=>{ if(!inList(x)) state.horses.push(fromData(x)); if(!isMine(x.horseId)) state.myHorses.push(x.horseId); state.myNames[x.horseId]=x.name; });
   renderList(); renderPicker(); schedule(); save();
 }
@@ -960,7 +940,7 @@ function renderPicker(){
   // banners
   const firstDate=(RACES.days[0]||{}).date||'';
   const mineNot=RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status);
-  const old=state.horses.filter(h=>!h.isSample&&h.date&&firstDate&&h.date<firstDate);
+  const old=state.horses.filter(h=>h.date&&firstDate&&h.date<firstDate);
   let b='';
   if(mineNot.length) b+=`<div class="banner"><p>★を付けた出資馬が今週 <b>${mineNot.length}頭</b> 出走します：${esc(mineNot.map(x=>x.name).join('、'))}</p><button type="button" class="primary" data-act="add-mine">まとめて追加</button></div>`;
   if(old.length) b+=`<div class="banner"><p>先週までの馬が <b>${old.length}頭</b> 残っています。</p><button type="button" data-act="del-old">消す</button></div>`;
@@ -972,7 +952,7 @@ $('#picker').addEventListener('click',e=>{ const b=e.target.closest('button[data
   if(a==='add'&&x) addFromData([x]);
   if(a==='star'&&x){ state.myHorses=isMine(x.horseId)?state.myHorses.filter(i=>i!==x.horseId):[...state.myHorses,x.horseId]; state.myNames[x.horseId]=x.name; save(); renderPicker(); }
   if(a==='add-mine') addFromData(RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status));
-  if(a==='del-old'){ const f=(RACES.days[0]||{}).date; state.horses=state.horses.filter(h=>h.isSample||!h.date||h.date>=f); renderList(); renderPicker(); schedule(); save(); }
+  if(a==='del-old'){ const f=(RACES.days[0]||{}).date; state.horses=state.horses.filter(h=>!h.date||h.date>=f); renderList(); renderPicker(); schedule(); save(); }
 });
 ['#p-club','#p-q','#p-mine'].forEach(s=>$(s).addEventListener(s==='#p-q'?'input':'change',renderPicker));
 async function loadRaces(){
