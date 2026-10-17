@@ -267,10 +267,11 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
       </div>
       <fieldset class="fld"><legend>サイズ</legend>
         <div class="seg" id="s-size">
-          <label><input type="radio" name="size" value="4:5"><span>縦長 4:5</span></label>
+          <label><input type="radio" name="size" value="4:5"><span>縦長</span></label>
           <label><input type="radio" name="size" value="1:1"><span>正方形</span></label>
-          <label><input type="radio" name="size" value="16:9"><span>横長 16:9</span></label>
+          <label><input type="radio" name="size" value="16:9"><span>横長</span></label>
         </div>
+        <p class="hint">縦長は 4:5、横長は 16:9 が基本です。頭数が多いと、縦長は下に、横長は列を増やして右に伸びます（正方形は大きさ固定）。</p>
       </fieldset>
       <fieldset class="fld"><legend>並び順（日付ごと）</legend>
         <div class="seg" id="s-order">
@@ -568,6 +569,57 @@ function bandsOf(entries,cols){
     else { if(!cur){ cur={day,venue:null,items:[]}; day=null; bands.push(cur); } cur.items.push(e); } });
   return bands.map(b=>({day:b.day,venue:b.venue,cols:splitRows(b.items)}));
 }
+/* 画像の大きさと並べ方を決める（10/18〜）。
+   縦長: 幅1080固定。行が ROW_PREF より小さくなる時は、行の大きさを保ったまま画像を縦に伸ばす（最小 4:5）
+   横長: 高さ900固定。列を左から上→下に埋め、入りきらなければ列を増やして画像を横に伸ばす（最小 16:9）。日ごとに新しい列から始める
+   正方形: 1200×1200固定（これまでどおり行を縮める） */
+const ROW_PREF={tall1:.11, tall2:.25, wide:118, wideColW:520}; /* 縦長1列は幅×0.11、縦長2列は列幅×0.25、横長は行118px（列が減るなら100pxまで）・列幅520px */
+function headerTop(W0,H0,S,hs){
+  const ts=Math.round(Math.min(W0*.06,H0*.068)), pad=Math.round(W0*.05), ds=Math.round(ts*.46);
+  let y=pad+ts*1.08; if(rangeText(hs)||(S.showCount&&hs.length)||S.handle) y+=ds*1.5;
+  return {ts,pad,top:y+ts*.3+ts*.55};
+}
+function flowCols(entries,cap,unit){ /* 横長用: 列の高さ cap（行の高さ単位）に詰める。日が変わる時と、見出しの後に1行も入らない時は次の列へ */
+  const cols=[]; let cur=[], used=0;
+  const next=()=>{ if(cur.length) cols.push(cur); cur=[]; used=0; };
+  entries.forEach((e,i)=>{
+    if(e.t==='day' && cur.length) next();
+    let need=unit(e);
+    if(e.t!=='horse'){ for(let j=i+1;j<entries.length;j++){ need+=unit(entries[j]); if(entries[j].t==='horse') break; } }
+    if(used+need>cap+1e-6 && cur.length) next();
+    cur.push(e); used+=unit(e);
+  });
+  next(); return cols;
+}
+function layoutOf(hs,S){
+  const mode=S.size==='16:9'?'wide':S.size==='1:1'?'square':'tall';
+  const [W0,H0]=SIZES[S.size]||SIZES['4:5'];
+  const {ts,pad,top}=headerTop(W0,H0,S,hs), gap=pad*.6;
+  const L={W:W0,H:H0,ts,pad,top,gap};
+  if(!hs.length) return L;
+  const entries=entriesOf(hs,S.order,HELD), n=hs.length;
+  if(mode==='wide' && n>3){
+    const avail=H0-pad-top, unit=e=>e.t==='horse'?1+GAP:e.t==='day'?DAY:VEN;
+    /* 列数が減るなら行を少し（最大15%）小さくしてよい。同じ列数になる中で一番大きい行を選ぶ */
+    const minC=flowCols(entries,avail/(ROW_PREF.wide*.85),unit).length;
+    let flow; for(let r=ROW_PREF.wide;r>=ROW_PREF.wide*.85-1e-6;r-=2){ flow=flowCols(entries,avail/r,unit); if(flow.length<=minC) break; }
+    if(flow.length===1){ /* 1列に収まる頭数でも、横長は2列に分けて行を大きくする */
+      const u=colUnits(flow[0]); for(let k=.5;k<1;k+=.05){ const f2=flowCols(entries,u*k+1.2,unit); if(f2.length===2){ flow=f2; break; } } }
+    const c=flow.length;
+    L.W=Math.max(W0,Math.round(pad*2+c*ROW_PREF.wideColW+(c-1)*gap));
+    L.colW=(L.W-pad*2-gap*(c-1))/c;
+    L.rowH=Math.min(avail/Math.max(...flow.map(colUnits)), L.colW*.27);
+    L.flow=flow; return L;
+  }
+  const cols=(mode==='wide'||n<=8)?1:2;
+  L.colW=(W0-pad*2-gap*(cols-1))/cols;
+  L.bands=bandsOf(entries,cols);
+  const units=L.bands.reduce((u,b)=>u+bandUnits(b),0);
+  L.rowH=Math.min((H0-pad-top)/units, cols===1?W0*.165:L.colW*.27);
+  if(mode==='tall'){ const pref=cols===1?W0*ROW_PREF.tall1:L.colW*ROW_PREF.tall2;
+    if(L.rowH<pref){ L.rowH=pref; L.H=Math.ceil(top+units*pref+pad); } }
+  return L;
+}
 const bandUnits=b=>(b.day?DAY:0)+(b.venue?VEN:0)+Math.max(...b.cols.map(colUnits));
 function splitRows(items){ /* 段の中は左→右→次の行の順に並べる（1 2 / 3 4 / 5。10/18〜。以前は左の列を上から埋めていた） */
   return [items.filter((_,i)=>i%2===0),items.filter((_,i)=>i%2===1)];
@@ -671,7 +723,7 @@ function loadImg(src){ if(imgCache[src]) return Promise.resolve(imgCache[src]); 
 
 async function render(){
   const S=state.settings, T=S.theme==='custom'?customTheme(S.custom):(THEMES[S.theme]||THEMES.turf);
-  if(S.theme==='custom'&&S.custom&&S.custom.image) await loadImg(S.custom.image); const [W,H]=SIZES[S.size]||SIZES['4:5'];
+  if(S.theme==='custom'&&S.custom&&S.custom.image) await loadImg(S.custom.image);
   const hs=state.horses;
   const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
   try{ await Promise.all([
@@ -680,11 +732,10 @@ async function render(){
   const imgs={}; await Promise.all(hs.filter(h=>h.photo).map(async h=>{ imgs[h.photo]=await loadImg(h.photo); }));
   await Promise.all([...new Set(hs.map(silksImgSrc).filter(Boolean))].map(async src=>{ const i=await loadImg(src); if(i&&i.naturalWidth) imgs[src]=i; }));
 
+  const L=layoutOf(hs,S), W=L.W, H=L.H, pad=L.pad, ts=L.ts;
   const cv=$('#cv'); cv.width=W; cv.height=H; const ctx=cv.getContext('2d');
-  const pad=Math.round(W*.05);
   drawBg(ctx,W,H,T,S.theme,pad);
-
-  const ts=Math.round(Math.min(W*.06,H*.068)); let y=pad;
+  let y=pad;
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   /* 見出しの英字（WEEKEND RUNNERS）は10/18に廃止。アカウント名は日付の行の右端へ */
   const tf=fit(ctx,S.title||'',400,F.display,ts,W-pad*2); ctx.fillStyle=T.fg; ctx.fillText(tf.t,pad,y+tf.s*.9); y+=ts*1.08;
@@ -697,27 +748,25 @@ async function render(){
     if(S.handle){ const f=fit(ctx,S.handle,700,F.body,ds*.8,Math.max(W*.18,W-pad-cx)); ctx.fillStyle=T.sub; ctx.textAlign='right'; ctx.fillText(f.t,W-pad,by); ctx.textAlign='left'; }
     y+=ds*1.5; }
   y+=ts*.3; const rw=W*.09; ctx.fillStyle=T.accent; ctx.fillRect(pad,y,rw,Math.max(3,ts*.07)); ctx.fillStyle=T.rowLine; ctx.fillRect(pad+rw+10,y+Math.max(3,ts*.07)/2-1,W-pad*2-rw-10,2);
-  const top=y+ts*.55;
-  const bottom=H-pad;
+  const top=L.top, bottom=H-pad;
 
   if(!hs.length){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の出資馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
-    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order,HELD); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const bands=bandsOf(entries,cols);
-    const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols;
-    const avail=bottom-top;
-    let rowH=avail/bands.reduce((u,b)=>u+bandUnits(b),0);
-    rowH=Math.min(rowH, cols===1?W*.165:colW*.27);
-    let yy=top;
-    bands.forEach(b=>{
-      if(b.day){ const dh=rowH*DAY; drawDay(ctx,pad,yy,W-pad*2,dh,b.day,T); yy+=dh; }
-      if(b.venue){ const vh=rowH*VEN; drawVenue(ctx,pad,yy,W-pad*2,vh,b.venue,T); yy+=vh; }
-      let bottomY=yy;
-      b.cols.forEach((p,ci)=>{ const x=pad+ci*(colW+colGap); let y2=yy;
-        p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,y2,colW,dh,e,T); y2+=dh; } else if(e.t==='venue'){ const vh=rowH*VEN; drawVenue(ctx,x,y2,colW,vh,e,T); y2+=vh; } else { drawRow(ctx,x,y2,colW,rowH,e.h,T,S,imgs); y2+=rowH*(1+GAP); } });
-        bottomY=Math.max(bottomY,y2); });
-      yy=bottomY;
-    });
+    S._anyUma=hs.some(h=>h.umaban);
+    const drawCol=(p,x,y0,colW)=>{ let y2=y0;
+      p.forEach(e=>{ if(e.t==='day'){ const dh=L.rowH*DAY; drawDay(ctx,x,y2,colW,dh,e,T); y2+=dh; } else if(e.t==='venue'){ const vh=L.rowH*VEN; drawVenue(ctx,x,y2,colW,vh,e,T); y2+=vh; } else { drawRow(ctx,x,y2,colW,L.rowH,e.h,T,S,imgs); y2+=L.rowH*(1+GAP); } });
+      return y2; };
+    if(L.flow){ /* 横長: 列を左から順に上から埋める */
+      L.flow.forEach((p,ci)=>drawCol(p,pad+ci*(L.colW+L.gap),top,L.colW));
+    } else { /* 縦長・正方形: 日・競馬場ごとの段。段の中は左右交互 */
+      let yy=top;
+      L.bands.forEach(b=>{
+        if(b.day){ const dh=L.rowH*DAY; drawDay(ctx,pad,yy,W-pad*2,dh,b.day,T); yy+=dh; }
+        if(b.venue){ const vh=L.rowH*VEN; drawVenue(ctx,pad,yy,W-pad*2,vh,b.venue,T); yy+=vh; }
+        yy=Math.max(yy,...b.cols.map((p,ci)=>drawCol(p,pad+ci*(L.colW+L.gap),yy,L.colW)));
+      });
+    }
   }
   $('#out').src=cv.toDataURL('image/png'); pngBlob=null; cv.toBlob(b=>{ pngBlob=b; },'image/png'); /* 共有メニューはタップ直後に呼ぶ必要があるので先に作っておく */
 }
