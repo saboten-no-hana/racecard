@@ -693,10 +693,15 @@ async function render(){
   y+=es+ts*.4;
   const tf=fit(ctx,S.title||'',400,F.display,ts,W-pad*2); ctx.fillStyle=T.fg; ctx.fillText(tf.t,pad,y+tf.s*.9); y+=ts*1.08;
   const rt=rangeText(hs);
-  if(rt){ const ds=Math.round(ts*.46); ctx.font=`600 ${ds}px ${F.num}`; ctx.fillStyle=T.sub; ls(ctx,ds*.05); ctx.fillText(rt,pad,y+ds*1.15); ls(ctx,0); y+=ds*1.5; }
+  const ct=S.showCount&&hs.length?`出資馬 ${hs.length}頭 出走`:''; /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
+  if(rt||ct){ const ds=Math.round(ts*.46), by=y+ds*1.15; let cx=pad;
+    if(rt){ ctx.font=`600 ${ds}px ${F.num}`; ctx.fillStyle=T.sub; ls(ctx,ds*.05); ctx.fillText(rt,cx,by); cx+=ctx.measureText(rt).width; ls(ctx,0); cx+=ds*.9; }
+    if(ct){ if(rt){ ctx.fillStyle=T.rowLine; ctx.fillRect(cx-ds*.45-1,by-ds*.78,2,ds*.86); }
+      const f=fit(ctx,ct,700,F.body,ds,W-pad-cx); ctx.fillStyle=T.fg; ctx.fillText(f.t,cx,by); }
+    y+=ds*1.5; }
   y+=ts*.3; const rw=W*.09; ctx.fillStyle=T.accent; ctx.fillRect(pad,y,rw,Math.max(3,ts*.07)); ctx.fillStyle=T.rowLine; ctx.fillRect(pad+rw+10,y+Math.max(3,ts*.07)/2-1,W-pad*2-rw-10,2);
   const top=y+ts*.55;
-  const footH=S.showCount&&hs.length? ts*.75:0; const bottom=H-pad-footH;
+  const bottom=H-pad;
 
   if(!hs.length){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の出資馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
@@ -710,7 +715,6 @@ async function render(){
     parts.forEach((p,ci)=>{ const x=pad+ci*(colW+colGap); let yy=top;
       p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,yy,colW,dh,e,T); yy+=dh; } else if(e.t==='venue'){ const vh=rowH*VEN; drawVenue(ctx,x,yy,colW,vh,e,T); yy+=vh; } else { drawRow(ctx,x,yy,colW,rowH,e.h,T,S,imgs); yy+=rowH*(1+GAP); } });
     });
-    if(footH){ const fs=Math.round(ts*.36); ctx.font=`700 ${fs}px ${F.body}`; ctx.fillStyle=T.sub; ctx.fillText(`出資馬 ${hs.length}頭 出走`,pad,H-pad); }
   }
   $('#out').src=cv.toDataURL('image/png'); pngBlob=null; cv.toBlob(b=>{ pngBlob=b; },'image/png'); /* 共有メニューはタップ直後に呼ぶ必要があるので先に作っておく */
 }

@@ -15,6 +15,8 @@ data/cache.json に記録して週をまたいで使い回す（個人馬主の�
 使い方:
   python3 tools/fetch_races.py            # JRAから取得
   python3 tools/fetch_races.py --offline DIR  # 保存済みHTMLで動作確認（DIR/*.html）
+  python3 tools/fetch_races.py --if-new-day   # 開催一覧に races.json にない日がある時だけ取得（なければトップ1回で終了）
+                                              # 3日間開催の3日目（月曜）分を金曜夕方に拾うための実行で使う
 """
 import json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -200,6 +202,15 @@ def main():
             meetings.append({'cname': c, 'venue': VENUES.get(m.group(1), m.group(1)), 'date': f'{d[:4]}-{d[4:6]}-{d[6:]}'})
     dates = sorted({x['date'] for x in meetings})
     print('開催:', ', '.join(f"{x['date']} {x['venue']}" for x in meetings), flush=True)
+    if '--if-new-day' in sys.argv:
+        known = set()
+        if os.path.exists(OUT):
+            known = {d['date'] for d in json.load(open(OUT, encoding='utf-8')).get('days', [])}
+        new = [d for d in dates if d not in known]
+        if not new:
+            print(f'新しい開催日なし（リクエスト数: {f.count}）')
+            return 0
+        print('新しい開催日:', ', '.join(new), flush=True)
 
     cache = {}
     if os.path.exists(CACHE):

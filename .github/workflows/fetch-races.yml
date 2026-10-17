@@ -7,6 +7,7 @@ on:
     - cron: '40 7 * * 4'   # 木 16:40 JST
     - cron: '10 9 * * 4'   # 木 18:10 JST（取りこぼし対策）
     - cron: '45 1 * * 5'   # 金 10:45 JST（土曜の枠順）
+    - cron: '40 7 * * 5'   # 金 16:40 JST（3日間開催の3日目の出走確定。新しい開催日がなければトップ1回で終了）
     - cron: '45 1 * * 6'   # 土 10:45 JST（日曜の枠順）
     - cron: '45 1 * * 0'   # 日 10:45 JST（月曜開催がある週の枠順）
   workflow_dispatch:
@@ -25,7 +26,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3
-      - run: python3 tools/fetch_races.py
+      - run: python3 tools/fetch_races.py ${{ github.event.schedule == '40 7 * * 5' && '--if-new-day' || '' }}
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
