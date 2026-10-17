@@ -1,14 +1,16 @@
 name: 出馬表の取得
 # JRAの出馬表から一口クラブ名義の出走馬を集めて data/races.json を更新する。
-#   木曜16時すぎ: 出走確定（馬番なし）／レース前日10時すぎ: 枠番・馬番つき
-# GitHub の定期実行は数分〜数十分遅れることがある。時刻はUTC（日本時間 = UTC+9）。
+#   木曜16時すぎ: 出走確定（馬番なし）／レース前日10時すぎ: 枠番・馬番つき（JRA FAQ。サイトへの反映に15分ほどかかる）
+# GitHub の定期実行は数分〜数十分遅れることがあるので、発表の20分ほど前に起動して
+# スクリプト側で「発表5分後」まで待ち、出馬表が揃うまで5分おきに確認する（tools/fetch_races.py --mode）。
+# 時刻はUTC（日本時間 = UTC+9）。
 on:
   schedule:
-    - cron: '40 7 * * 4'   # 木 16:40 JST
-    - cron: '10 9 * * 4'   # 木 18:10 JST（取りこぼし対策）
-    - cron: '45 1 * * 5'   # 金 10:45 JST（土曜の枠順）
-    - cron: '45 1 * * 6'   # 土 10:45 JST（日曜の枠順）
-    - cron: '45 1 * * 0'   # 日 10:45 JST（3日間開催の3日目＝月曜の枠順。出馬投票は3日目分も木曜）
+    - cron: '45 6 * * 4'   # 木 15:45 JST 起動 → 16:05 から出走確定を確認（〜18:30）
+    - cron: '5 10 * * 4'   # 木 19:05 JST 安全網（1回だけ取得。有馬記念の週の枠順抽選 18:30ごろ もここで拾う）
+    - cron: '45 0 * * 5'   # 金 09:45 JST 起動 → 10:05 から土曜の馬番を確認（〜12:00）
+    - cron: '45 0 * * 6'   # 土 09:45 JST 起動 → 10:05 から日曜の馬番を確認（3日間開催の月曜の重賞もこの回で入る）
+    - cron: '45 0 * * 0'   # 日 09:45 JST 起動 → 10:05 から月曜の馬番を確認（3日間開催の週だけ。月曜に開催がなければ1回で終了）
   workflow_dispatch:
 permissions:
   contents: write
@@ -18,14 +20,21 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 210   # 木曜は 15:45 起動〜18:30 まで待つことがある
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3
-      - run: python3 tools/fetch_races.py
+      - name: 出馬表を取得
+        run: |
+          case "${{ github.event.schedule }}" in
+            '45 6 * * 4') ARGS='--mode confirm --start 16:05 --until 18:30' ;;
+            '45 0 * * 5'|'45 0 * * 6'|'45 0 * * 0') ARGS='--mode umaban --start 10:05 --until 12:00' ;;
+            *) ARGS='' ;;   # 安全網・手動実行は1回だけ
+          esac
+          python3 tools/fetch_races.py $ARGS
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
