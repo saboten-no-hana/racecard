@@ -271,7 +271,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
           <label><input type="radio" name="size" value="1:1"><span>正方形</span></label>
           <label><input type="radio" name="size" value="16:9"><span>横長</span></label>
         </div>
-        <p class="hint">縦長は 4:5、横長は 16:9 が基本です。頭数が多いと、縦長は下に、横長は列を増やして右に伸びます（正方形は大きさ固定）。</p>
+        <p class="hint">縦長は頭数に合わせて高さが変わります（少ない時は正方形まで縮み、多い時は下に伸びます）。横長は 16:9 に近い形のまま、列を増やして縦横に大きくなります。正方形は大きさ固定です。</p>
       </fieldset>
       <fieldset class="fld"><legend>並び順（日付ごと）</legend>
         <div class="seg" id="s-order">
@@ -571,7 +571,7 @@ function bandsOf(entries,cols){
 }
 /* 画像の大きさと並べ方を決める（10/18〜）。
    縦長: 幅1080固定。行が ROW_PREF より小さくなる時は、行の大きさを保ったまま画像を縦に伸ばす（最小 4:5）
-   横長: 高さ900固定。列を左から上→下に埋め、入りきらなければ列を増やして画像を横に伸ばす（最小 16:9）。日ごとに新しい列から始める
+   横長: 列を左から上→下に埋め、入りきらなければ列を増やす。高さも伸ばして 16:9 に近い形を保つ（最小 1600×900）。日ごとに新しい列から始める
    正方形: 1200×1200固定（これまでどおり行を縮める） */
 const ROW_PREF={tall1:.11, tall2:.25, wide:118, wideColW:520}; /* 縦長1列は幅×0.11、縦長2列は列幅×0.25、横長は行118px（列が減るなら100pxまで）・列幅520px */
 function headerTop(W0,H0,S,hs){
@@ -580,13 +580,17 @@ function headerTop(W0,H0,S,hs){
   return {ts,pad,top:y+ts*.3+ts*.55};
 }
 function flowCols(entries,cap,unit){ /* 横長用: 列の高さ cap（行の高さ単位）に詰める。日が変わる時と、見出しの後に1行も入らない時は次の列へ */
-  const cols=[]; let cur=[], used=0;
+  const cols=[]; let cur=[], used=0, day=null, ven=null;
   const next=()=>{ if(cur.length) cols.push(cur); cur=[]; used=0; };
+  const cont=e=>{ /* 同じ日・競馬場の続きで列を移る時は、見出しは描かずに高さだけ取って行の位置を左の列とそろえる（10/18） */
+    next(); if(day){ cur.push({...day,blank:true}); used+=unit(day); }
+    if(e.t==='horse' && ven){ cur.push({...ven,blank:true}); used+=unit(ven); } };
   entries.forEach((e,i)=>{
     if(e.t==='day' && cur.length) next();
     let need=unit(e);
     if(e.t!=='horse'){ for(let j=i+1;j<entries.length;j++){ need+=unit(entries[j]); if(entries[j].t==='horse') break; } }
-    if(used+need>cap+1e-6 && cur.length) next();
+    if(used+need>cap+1e-6 && cur.length) cont(e);
+    if(e.t==='day'){ day=e; ven=null; } else if(e.t==='venue') ven=e;
     cur.push(e); used+=unit(e);
   });
   next(); return cols;
@@ -599,25 +603,37 @@ function layoutOf(hs,S){
   if(!hs.length) return L;
   const entries=entriesOf(hs,S.order,HELD), n=hs.length;
   if(mode==='wide' && n>3){
-    const avail=H0-pad-top, unit=e=>e.t==='horse'?1+GAP:e.t==='day'?DAY:VEN;
-    /* 列数が減るなら行を少し（最大15%）小さくしてよい。同じ列数になる中で一番大きい行を選ぶ */
-    const minC=flowCols(entries,avail/(ROW_PREF.wide*.85),unit).length;
-    let flow; for(let r=ROW_PREF.wide;r>=ROW_PREF.wide*.85-1e-6;r-=2){ flow=flowCols(entries,avail/r,unit); if(flow.length<=minC) break; }
-    if(flow.length===1){ /* 1列に収まる頭数でも、横長は2列に分けて行を大きくする */
-      const u=colUnits(flow[0]); for(let k=.5;k<1;k+=.05){ const f2=flowCols(entries,u*k+1.2,unit); if(f2.length===2){ flow=f2; break; } } }
-    const c=flow.length;
-    L.W=Math.max(W0,Math.round(pad*2+c*ROW_PREF.wideColW+(c-1)*gap));
-    L.colW=(L.W-pad*2-gap*(c-1))/c;
+    /* 横長（10/18〜）: 高さを900から少しずつ伸ばして試し、幅（列数で決まる）との比が 16:9 に一番近い高さを選ぶ。
+       頭数が少なければ 1600×900 のまま、多ければ縦横両方に伸びる */
+    const unit=e=>e.t==='horse'?1+GAP:e.t==='day'?DAY:VEN;
+    const plan=H=>{ const avail=H-pad-top;
+      /* 列数が減るなら行を少し（最大15%）小さくしてよい。同じ列数になる中で一番大きい行を選ぶ */
+      const minC=flowCols(entries,avail/(ROW_PREF.wide*.85),unit).length;
+      let flow; for(let r=ROW_PREF.wide;r>=ROW_PREF.wide*.85-1e-6;r-=2){ flow=flowCols(entries,avail/r,unit); if(flow.length<=minC) break; }
+      if(flow.length===1){ /* 1列に収まる頭数でも、横長は2列に分けて行を大きくする */
+        const u=colUnits(flow[0]); for(let k=.5;k<1;k+=.05){ const f2=flowCols(entries,u*k+1.2,unit); if(f2.length===2){ flow=f2; break; } } }
+      const c=flow.length, W=Math.max(W0,Math.round(pad*2+c*ROW_PREF.wideColW+(c-1)*gap));
+      return {H,W,flow,avail,score:Math.abs(Math.log((W/H)/(16/9)))}; };
+    let best=plan(H0);
+    for(let H=H0+30;H<=H0*4 && best.score>.02;H+=30){ const p=plan(H); if(p.score<best.score-.01) best=p; }
+    const {W,H,flow,avail}=best, c=flow.length;
+    L.W=W; L.H=H; L.colW=(W-pad*2-gap*(c-1))/c;
     L.rowH=Math.min(avail/Math.max(...flow.map(colUnits)), L.colW*.27);
     L.flow=flow; return L;
   }
-  const cols=(mode==='wide'||n<=8)?1:2;
+  const cols=(mode==='wide'||n<=8)?1:2; /* 縦長・正方形は8頭まで1列、9頭以上で2列 */
   L.colW=(W0-pad*2-gap*(cols-1))/cols;
   L.bands=bandsOf(entries,cols);
   const units=L.bands.reduce((u,b)=>u+bandUnits(b),0);
-  L.rowH=Math.min((H0-pad-top)/units, cols===1?W0*.165:L.colW*.27);
-  if(mode==='tall'){ const pref=cols===1?W0*ROW_PREF.tall1:L.colW*ROW_PREF.tall2;
-    if(L.rowH<pref){ L.rowH=pref; L.H=Math.ceil(top+units*pref+pad); } }
+  const capR=cols===1?W0*.165:L.colW*.27;
+  L.rowH=Math.min((H0-pad-top)/units, capR);
+  if(mode==='tall'){ /* 縦長は内容に合わせて高さを決める（10/18〜）:
+       行を最大の大きさにして 4:5 に収まるなら、その高さまで縮める（ただし正方形より低くはしない）。
+       4:5 に収まらなければ行を ROW_PREF まで小さくし、それでも入らなければ下に伸ばす */
+    const pref=cols===1?W0*ROW_PREF.tall1:L.colW*ROW_PREF.tall2, need=r=>top+units*r+pad;
+    if(need(capR)<=H0){ L.rowH=capR; L.H=Math.ceil(Math.max(W0,need(capR)));
+      if(need(capR)<W0) L.rowH=Math.min((W0-top-pad)/units, capR*1.3); }
+    else if(L.rowH<pref){ L.rowH=pref; L.H=Math.ceil(need(pref)); } }
   return L;
 }
 const bandUnits=b=>(b.day?DAY:0)+(b.venue?VEN:0)+Math.max(...b.cols.map(colUnits));
