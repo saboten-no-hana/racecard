@@ -566,17 +566,15 @@ function entriesOf(horses,order,heldVenues){
 }
 const GAP=.11, DAY=.5, VEN=.46; /* 行の高さを1とした時の、行間・日付見出し・競馬場見出しの高さ */
 const colUnits=p=>p.reduce((u,e)=>u+(e.t==='horse'?1+GAP:e.t==='day'?DAY:VEN),0);
-const SPLIT_DAY_MAX=1.15; /* 日の境目で分けた時、頭数の半分で分けるより行が縮む割合の上限（約13%まで縮むのは許す） */
-function splitCols(entries,cols){
-  if(cols===1) return [entries];
-  const half=splitHalf(entries);
-  /* 2日以上の時は日の境目で左右に分ける（10/18）。高い方の列が最も低くなる境目を選び、
-     半分で分けた時より行が大きく縮むなら（片方の日に偏っている時）半分で分ける */
-  let best=null;
-  entries.forEach((e,i)=>{ if(e.t==='day' && i>0){ const m=Math.max(colUnits(entries.slice(0,i)),colUnits(entries.slice(i))); if(!best||m<best.m) best={i,m}; } });
-  if(best && best.m<=Math.max(colUnits(half[0]),colUnits(half[1]))*SPLIT_DAY_MAX) return [entries.slice(0,best.i),entries.slice(best.i)];
-  return half;
+/* 2列の時は日ごとに上下の段に分け、各段の中を2列にする（10/18）。日付の見出しは段の幅いっぱいに出す。
+   1列の時は段に分けず、日付の見出しも列の中に並べる */
+function bandsOf(entries,cols){
+  if(cols===1) return [{day:null,cols:[entries]}];
+  const bands=[]; let cur=null;
+  entries.forEach(e=>{ if(e.t==='day'||!cur){ cur={day:e.t==='day'?e:null,items:[]}; bands.push(cur); if(e.t==='day') return; } cur.items.push(e); });
+  return bands.map(b=>({day:b.day,cols:splitHalf(b.items)}));
 }
+const bandUnits=b=>(b.day?DAY:0)+Math.max(...b.cols.map(colUnits));
 function splitHalf(entries){
   const n=entries.filter(e=>e.t==='horse').length, half=Math.ceil(n/2); let c=0, idx=0;
   for(;idx<entries.length;idx++){ if(entries[idx].t==='horse' && ++c===half){ idx++; break; } }
@@ -720,14 +718,19 @@ async function render(){
   if(!hs.length){
     ctx.font=`700 ${Math.round(ts*.45)}px ${F.body}`; ctx.fillStyle=T.sub; ctx.textAlign='center'; ctx.fillText('出走予定の出資馬を追加してください',W/2,(top+bottom)/2); ctx.textAlign='left';
   } else {
-    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order,HELD); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const parts=splitCols(entries,cols);
+    S._anyUma=hs.some(h=>h.umaban); const entries=entriesOf(hs,S.order,HELD); const cols=((W/H>1.3&&hs.length>3)||hs.length>8)?2:1; const bands=bandsOf(entries,cols);
     const colGap=pad*.6, colW=(W-pad*2-colGap*(cols-1))/cols;
     const avail=bottom-top;
-    let rowH=Infinity;
-    parts.forEach(p=>{ const nH=p.filter(e=>e.t==='horse').length, nD=p.filter(e=>e.t==='day').length, nV=p.filter(e=>e.t==='venue').length; if(nH) rowH=Math.min(rowH, avail/(nH+nH*GAP+nD*DAY+nV*VEN)); });
+    let rowH=avail/bands.reduce((u,b)=>u+bandUnits(b),0);
     rowH=Math.min(rowH, cols===1?W*.165:colW*.27);
-    parts.forEach((p,ci)=>{ const x=pad+ci*(colW+colGap); let yy=top;
-      p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,yy,colW,dh,e,T); yy+=dh; } else if(e.t==='venue'){ const vh=rowH*VEN; drawVenue(ctx,x,yy,colW,vh,e,T); yy+=vh; } else { drawRow(ctx,x,yy,colW,rowH,e.h,T,S,imgs); yy+=rowH*(1+GAP); } });
+    let yy=top;
+    bands.forEach(b=>{
+      if(b.day){ const dh=rowH*DAY; drawDay(ctx,pad,yy,W-pad*2,dh,b.day,T); yy+=dh; }
+      let bottomY=yy;
+      b.cols.forEach((p,ci)=>{ const x=pad+ci*(colW+colGap); let y2=yy;
+        p.forEach(e=>{ if(e.t==='day'){ const dh=rowH*DAY; drawDay(ctx,x,y2,colW,dh,e,T); y2+=dh; } else if(e.t==='venue'){ const vh=rowH*VEN; drawVenue(ctx,x,y2,colW,vh,e,T); y2+=vh; } else { drawRow(ctx,x,y2,colW,rowH,e.h,T,S,imgs); y2+=rowH*(1+GAP); } });
+        bottomY=Math.max(bottomY,y2); });
+      yy=bottomY;
     });
   }
   $('#out').src=cv.toDataURL('image/png'); pngBlob=null; cv.toBlob(b=>{ pngBlob=b; },'image/png'); /* 共有メニューはタップ直後に呼ぶ必要があるので先に作っておく */
