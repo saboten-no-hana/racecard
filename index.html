@@ -150,6 +150,12 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
 .mylist span{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:2px 4px 2px 10px;font-size:13px;background:var(--surface-2)}
 .mylist button{border:0;background:transparent;padding:2px 6px;font-size:14px;color:var(--muted)}
 .tstatus{font-size:13px;color:var(--accent);min-height:1.2em;margin:0}
+.mylist small{color:var(--muted);font-size:11px}
+.bprev{display:flex;flex-wrap:wrap;gap:6px}
+.bprev label{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 6px;font-size:13px;background:var(--surface-2);cursor:pointer;max-width:100%}
+.bprev input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+.bprev small{color:var(--muted);font-size:11px}
+.bprev label.done{opacity:.6;cursor:default}
 .custom-box{display:grid;gap:10px;border:1px dashed var(--line);border-radius:10px;padding:12px}
 .custom-box .g3c{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .custom-box input[type=range]{width:100%;accent-color:var(--accent)}
@@ -181,9 +187,19 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
         <label class="fld"><span>この端末の引き継ぎコード</span>
           <div class="row-inline"><input type="text" id="t-code" readonly><button type="button" id="t-copy">コードをコピー</button><button type="button" id="t-link">リンクをコピー</button></div></label>
         <label class="fld"><span>別の端末のコードを読み込む（今の★に追加されます）</span>
-          <div class="row-inline"><input type="text" id="t-in" placeholder="RC1: から始まるコード" autocomplete="off"><button type="button" class="primary" id="t-load">読み込む</button></div></label>
+          <div class="row-inline"><input type="text" id="t-in" placeholder="RC1: や RC2: から始まるコード" autocomplete="off"><button type="button" class="primary" id="t-load">読み込む</button></div></label>
         <p class="tstatus" id="t-status" role="status"></p>
         <p class="hint">★はこのブラウザの中にだけ保存されています。スマホとPCなど別の端末で使うときは、コードかリンクを自分宛てに送って、もう一方の端末で読み込んでください。</p>
+      </details>
+      <details class="transfer" id="bulk">
+        <summary>馬名をまとめて★を付ける</summary>
+        <label class="fld"><span>出資馬の名前（改行や「、」で区切る）。出資馬の一覧が載ったページの文字をまるごと貼り付けても、カタカナの馬名だけを拾い出します</span>
+          <textarea id="b-in" rows="4" placeholder="例）ホシノカケラ、ミドリノカゼ" autocomplete="off"></textarea></label>
+        <div class="row-inline"><button type="button" id="b-parse">馬名を拾い出す</button></div>
+        <div class="bprev" id="b-prev" hidden></div>
+        <div class="row-inline" id="b-act" hidden><button type="button" class="primary" id="b-ok">★を付ける</button><button type="button" class="ghost" id="b-cancel">やめる</button></div>
+        <p class="tstatus" id="b-status" role="status"></p>
+        <p class="hint">今週の出馬表にいない馬は「出走待ち」として名前を覚えておき、出走する週に自動で★に変わります。募集名（「〇〇25」など）は対象外です。違う言葉が拾われたら、チェックを外してから★を付けてください。</p>
       </details>
       <div class="plist" id="p-list"></div>
       <p class="hint">JRAの出馬表から、一口クラブ名義の馬を自動で集めています。木曜16時すぎに出走確定（馬番なし）、レース前日10時すぎに枠・馬番が入ります（反映まで30分ほどかかります）。★を付けた馬は、次に出走する週に「まとめて追加」で一度に入れられます。</p>
@@ -365,6 +381,7 @@ if(typeof state.settings.post!=='string'||!state.settings.post.trim()) state.set
 if(state.settings.theme==='snow') state.settings.theme='winter'; /* 雪は廃止（降雪時は開催中止になるため）→ 冬 */
 state.myHorses = Array.isArray(state.myHorses)?state.myHorses:[];
 state.myNames = state.myNames||{};
+state.myPending = Array.isArray(state.myPending)?state.myPending:[]; /* 馬名だけで★予約中（出馬表に出たら馬IDの★へ） */
 state.settings.custom = {...DEFAULT_CUSTOM,...(state.settings.custom||{})};
 
 let saveT, pngBlob=null;
@@ -804,7 +821,7 @@ $('#add').addEventListener('click',()=>{ const last=state.horses[state.horses.le
   const card=document.querySelector(`.horse[data-id="${h.id}"]`); card.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); card.querySelector('[data-f="name"]').focus({preventScroll:true}); });
 const clearBtn=$('#clear');
 clearBtn.addEventListener('click',()=>{ if(clearBtn.dataset.armed){ state.horses=[]; delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; renderList(); schedule(); save(); } else { clearBtn.dataset.armed='1'; clearBtn.textContent='もう一度押すと全馬を消します'; setTimeout(()=>{ delete clearBtn.dataset.armed; clearBtn.textContent='すべて消す'; },3000); } });
-$('#sample').addEventListener('click',()=>{ const old=state, keep=old.settings; state=sample(); state.settings={...state.settings,theme:keep.theme,size:keep.size,handle:keep.handle,custom:keep.custom}; state.myHorses=old.myHorses||[]; state.myNames=old.myNames||{}; renderList(); syncSettings(); syncCustom(); schedule(); save(); });
+$('#sample').addEventListener('click',()=>{ const old=state, keep=old.settings; state=sample(); state.settings={...state.settings,theme:keep.theme,size:keep.size,handle:keep.handle,custom:keep.custom}; state.myHorses=old.myHorses||[]; state.myNames=old.myNames||{}; state.myPending=old.myPending||[]; renderList(); syncSettings(); syncCustom(); schedule(); save(); });
 
 function syncSettings(){ const S=state.settings;
   $('#s-title').value=S.title; $('#s-handle').value=S.handle; $('#s-post').value=S.post??S.title;
@@ -942,6 +959,7 @@ async function loadRaces(){
     $('#p-club').innerHTML=`<option value="">すべてのクラブ（${RACES.horses.length}頭）</option>`+CLUBS.filter(c=>counts[c.id]).map(c=>`<option value="${c.id}">${esc(c.name)}（${counts[c.id]}頭）</option>`).join('');
     try{ const v=localStorage.getItem('racecard.pclub'); if(v&&counts[v]) $('#p-club').value=v; }catch(e){}
     RACES.horses.forEach(x=>{ if(isMine(x.horseId)) state.myNames[x.horseId]=x.name; });
+    if(resolvePending()) save();
     const n=syncFromData(); if(n){ renderList(); save(); U.textContent+=`／出走馬${n}頭を最新の内容に更新`; }
     renderPicker(); schedule();
   }catch(e){
@@ -953,44 +971,107 @@ $('#p-club').addEventListener('change',e=>{ try{ localStorage.setItem('racecard.
 
 /* ---------- ★の引き継ぎ ---------- */
 // コード形式: RC1: + 馬ID（10桁）を36進数にして「.」でつないだもの
-function encodeMine(ids){ return 'RC1:'+ids.map(id=>Number(id).toString(36)).join('.'); }
-function decodeMine(code){
+//            RC2: + RC1と同じ馬ID部分 + 「~」 + 出走待ちの馬名（1文字を U+30A0 からの差の36進2桁にして「-」でつなぐ）
+//            出走待ちの馬名がない時は従来どおり RC1 を出す
+const KANA_NAME=/^[ァ-ヺ][ァ-ヺー]{1,8}$/; /* JRAの馬名はカタカナ2〜9文字 */
+const encName=n=>[...n].map(c=>(c.charCodeAt(0)-0x30A0).toString(36).padStart(2,'0')).join('');
+function decName(t){ if(!/^([0-9a-z]{2})+$/i.test(t)) return null; let n=''; for(let i=0;i<t.length;i+=2) n+=String.fromCharCode(0x30A0+parseInt(t.slice(i,i+2),36)); return KANA_NAME.test(n)?n:null; }
+function encodeMine(ids,names=[]){ const a=ids.map(id=>Number(id).toString(36)).join('.'); return names.length?'RC2:'+a+'~'+names.map(encName).join('-'):'RC1:'+a; }
+function decodeMine(code){ /* → {ids, names} または null */
   code=String(code||'').trim().replace(/^.*#star=/,'');
   try{ code=decodeURIComponent(code); }catch(e){}
-  const m=code.match(/^RC1:([0-9a-z.]*)$/i); if(!m) return null;
-  return m[1].split('.').filter(Boolean).map(t=>String(parseInt(t,36))).filter(id=>/^\d{10}$/.test(id));
+  const ids=t=>t.split('.').filter(Boolean).map(x=>String(parseInt(x,36))).filter(id=>/^\d{10}$/.test(id));
+  let m=code.match(/^RC1:([0-9a-z.]*)$/i); if(m) return {ids:ids(m[1]),names:[]};
+  m=code.match(/^RC2:([0-9a-z.]*)~([0-9a-z-]*)$/i); if(m) return {ids:ids(m[1]),names:[...new Set(m[2].split('-').filter(Boolean).map(decName).filter(Boolean))]};
+  return null;
 }
-function shareLink(){ return location.origin+location.pathname+'#star='+encodeURIComponent(encodeMine(state.myHorses)); }
+const myCode=()=>encodeMine(state.myHorses,state.myPending);
+const myTotal=()=>state.myHorses.length+state.myPending.length;
+function shareLink(){ return location.origin+location.pathname+'#star='+encodeURIComponent(myCode()); }
 function renderTransfer(){
-  $('#t-count').textContent=state.myHorses.length;
-  $('#t-code').value=state.myHorses.length?encodeMine(state.myHorses):'';
-  $('#t-list').innerHTML=state.myHorses.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')||'<p class="pempty">まだ★を付けた馬はいません。</p>';
+  $('#t-count').textContent=myTotal();
+  $('#t-code').value=myTotal()?myCode():'';
+  $('#t-list').innerHTML=(state.myHorses.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')
+    +state.myPending.map(n=>`<span>${esc(n)}<small>出走待ち</small><button type="button" data-name="${esc(n)}" aria-label="★を外す" title="★を外す">✕</button></span>`).join(''))||'<p class="pempty">まだ★を付けた馬はいません。</p>';
 }
-function importMine(ids){
-  const before=state.myHorses.length; state.myHorses=[...new Set([...state.myHorses,...ids])];
-  if(RACES) RACES.horses.forEach(x=>{ if(ids.includes(x.horseId)) state.myNames[x.horseId]=x.name; });
-  save(); renderTransfer(); renderPicker(); return state.myHorses.length-before;
+/* 出走待ちの馬名が今週の出馬表に出ていれば、馬IDの★に切り替える（現役の登録馬名は重複しないので名前で照合） */
+function resolvePending(){
+  if(!RACES||!state.myPending.length) return 0; let n=0;
+  state.myPending=state.myPending.filter(name=>{ const x=RACES.horses.find(y=>y.name===name); if(!x) return true;
+    if(!isMine(x.horseId)) state.myHorses.push(x.horseId); state.myNames[x.horseId]=x.name; n++; return false; });
+  return n;
+}
+const knownName=n=>state.myPending.includes(n)||state.myHorses.some(id=>state.myNames[id]===n);
+function importMine(d){
+  const before=myTotal(); state.myHorses=[...new Set([...state.myHorses,...d.ids])];
+  if(RACES) RACES.horses.forEach(x=>{ if(d.ids.includes(x.horseId)) state.myNames[x.horseId]=x.name; });
+  d.names.forEach(n=>{ if(!knownName(n)) state.myPending.push(n); });
+  resolvePending(); save(); renderTransfer(); renderPicker(); return myTotal()-before;
 }
 async function copyText(t,okMsg){ const st=$('#t-status');
   try{ await navigator.clipboard.writeText(t); st.textContent=okMsg; }
   catch(e){ const i=$('#t-code'); i.value=t; i.select(); st.textContent='コピーできなかったので、表示された文字を選んでコピーしてください'; } }
-$('#t-copy').addEventListener('click',()=>{ if(!state.myHorses.length){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(encodeMine(state.myHorses),'コードをコピーしました'); });
-$('#t-link').addEventListener('click',()=>{ if(!state.myHorses.length){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(shareLink(),'リンクをコピーしました。もう一方の端末で開くと読み込めます'); });
-$('#t-load').addEventListener('click',()=>{ const ids=decodeMine($('#t-in').value);
-  if(!ids){ $('#t-status').textContent='コードの形式が違います。RC1: から始まるコードを貼り付けてください'; return; }
-  const n=importMine(ids); $('#t-in').value=''; $('#t-status').textContent=`${ids.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`; });
-$('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data-id]'); if(!b) return; state.myHorses=state.myHorses.filter(i=>i!==b.dataset.id); save(); renderTransfer(); renderPicker(); });
+$('#t-copy').addEventListener('click',()=>{ if(!myTotal()){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(myCode(),'コードをコピーしました'); });
+$('#t-link').addEventListener('click',()=>{ if(!myTotal()){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(shareLink(),'リンクをコピーしました。もう一方の端末で開くと読み込めます'); });
+const loadedMsg=(d,n)=>`${d.ids.length+d.names.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`;
+$('#t-load').addEventListener('click',()=>{ const d=decodeMine($('#t-in').value);
+  if(!d){ $('#t-status').textContent='コードの形式が違います。RC1: か RC2: から始まるコードを貼り付けてください'; return; }
+  const n=importMine(d); $('#t-in').value=''; $('#t-status').textContent=loadedMsg(d,n); });
+$('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data-id],button[data-name]'); if(!b) return;
+  if(b.dataset.id) state.myHorses=state.myHorses.filter(i=>i!==b.dataset.id); else state.myPending=state.myPending.filter(n=>n!==b.dataset.name);
+  save(); renderTransfer(); renderPicker(); });
 function checkHashImport(){
   if(!location.hash.startsWith('#star=')) return;
-  const ids=decodeMine(location.hash); history.replaceState(null,'',location.pathname+location.search);
-  if(!ids||!ids.length) return;
+  const d=decodeMine(location.hash); history.replaceState(null,'',location.pathname+location.search);
+  if(!d||!(d.ids.length+d.names.length)) return;
   const B=$('#p-banners'), div=document.createElement('div'); div.className='banner';
-  div.innerHTML=`<p>引き継ぎリンクの★ <b>${ids.length}頭</b> をこの端末に読み込みますか？</p><div class="row-inline"><button type="button" class="primary">読み込む</button><button type="button" class="ghost">やめる</button></div>`;
+  div.innerHTML=`<p>引き継ぎリンクの★ <b>${d.ids.length+d.names.length}頭</b> をこの端末に読み込みますか？</p><div class="row-inline"><button type="button" class="primary">読み込む</button><button type="button" class="ghost">やめる</button></div>`;
   const [ok,no]=div.querySelectorAll('button');
-  ok.addEventListener('click',()=>{ const n=importMine(ids); div.remove(); $('#transfer').open=true; $('#t-status').textContent=`${ids.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`; });
+  ok.addEventListener('click',()=>{ const n=importMine(d); div.remove(); $('#transfer').open=true; $('#t-status').textContent=loadedMsg(d,n); });
   no.addEventListener('click',()=>div.remove());
   $('#picker').insertBefore(div,B);
 }
+
+/* ---------- 馬名をまとめて★ ---------- */
+/* 利用者が書いた・貼り付けた文章からカタカナの馬名を拾う。外部サイトには一切アクセスしない。
+   ・カタカナの連なり（2〜9文字）を候補にする。直後に数字が続くもの（募集名「〇〇25」）は除く
+   ・ひらがなで書かれた語は、改行や読点などで区切られた1語だけをカタカナにして候補にする
+   ・サイトのメニュー等によく出る語（NOT_NAME）は、今週の出馬表に同じ名前の馬がいない限り除く */
+const NOT_NAME=new Set(('クラブ データ ツール ログイン ログアウト カタログ コラム シート チェッカー ニックス インブリード シミュ ランキング ノウハウ プレミアム サポート '
+  +'サポートセンター ガイド フィギュア リンク シェア シェアリンク ページ マイページ トップ ホーム メニュー ニュース ヘルプ サービス サイト コンテンツ カテゴリ '
+  +'プライバシー ポリシー メール パスワード アカウント ユーザー アプリ ダウンロード コピー リスト メモ テキスト ボタン クリック タップ ファイル '
+  +'クラス レース オーナー オーナーズ ファーム ホース サラブレッド レーシング ターフ ダート オープン リステッド グレード ステークス カップ ハンデ '
+  +'ゲート パドック ジョッキー トレセン キャンペーン ポイント プラン コース ライブ ブログ ツイート フォロー フォロワー').split(' '));
+/* メニュー語だけでできた複合語（クラブデータ、シェアリンク など）も除く */
+function menuWord(w){ if(NOT_NAME.has(w)) return true; const ok=[true]; for(let i=1;i<=w.length;i++){ ok[i]=false; for(let j=Math.max(0,i-9);j<i-1;j++) if(ok[j]&&NOT_NAME.has(w.slice(j,i))){ ok[i]=true; break; } } return ok[w.length]; }
+let BULK=[];
+function extractNames(text){
+  const t=String(text||'').normalize('NFKC'), out=[], sep=c=>!c||/[\n\r\t、，,・\/／|｜]/.test(c); /* ひらがなの語は行・読点などで区切られた時だけ（文中の語を拾わないため空白は区切りにしない） */
+  for(const m of t.matchAll(/[ぁ-ゖァ-ヺー]+/g)){
+    let w=m[0]; const prev=t[m.index-1], next=t[m.index+w.length];
+    if(/[ぁ-ゖ]/.test(w)){ if(!(sep(prev)&&sep(next))) continue; w=w.replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)); }
+    else if(next&&/\d/.test(next)) continue;
+    if(KANA_NAME.test(w)&&!out.includes(w)) out.push(w);
+  }
+  return out;
+}
+function renderBulk(){
+  const P=$('#b-prev'), on=BULK.length>0;
+  P.hidden=!on; $('#b-act').hidden=!on;
+  P.innerHTML=BULK.map((c,i)=>`<label class="${c.done?'done':''}"><input type="checkbox" data-i="${i}"${c.done?' checked disabled':c.on?' checked':''}>${esc(c.name)}<small>${c.done?'登録済み':c.x?'今週出走':'出走待ち'}</small></label>`).join('');
+  const k=BULK.filter(c=>c.on&&!c.done).length; $('#b-ok').textContent=`★を付ける（${k}頭）`; $('#b-ok').disabled=!k;
+}
+$('#b-parse').addEventListener('click',()=>{ const st=$('#b-status');
+  const names=extractNames($('#b-in').value).filter(n=>!menuWord(n)||(RACES&&RACES.horses.some(x=>x.name===n)));
+  BULK=names.map(n=>{ const x=RACES&&RACES.horses.find(y=>y.name===n); return {name:n,x,on:true,done:knownName(n)||!!(x&&isMine(x.horseId))}; });
+  renderBulk();
+  st.textContent=!BULK.length?'カタカナの馬名が見つかりませんでした':`${BULK.length}頭の馬名が見つかりました。確認して「★を付ける」を押してください`; });
+$('#b-prev').addEventListener('change',e=>{ const i=e.target.dataset.i; if(i==null) return; BULK[i].on=e.target.checked; renderBulk(); });
+$('#b-cancel').addEventListener('click',()=>{ BULK=[]; renderBulk(); $('#b-status').textContent=''; });
+$('#b-ok').addEventListener('click',()=>{ let a=0,p=0;
+  BULK.filter(c=>c.on&&!c.done).forEach(c=>{ if(c.x){ if(!isMine(c.x.horseId)) state.myHorses.push(c.x.horseId); state.myNames[c.x.horseId]=c.x.name; a++; } else if(!knownName(c.name)){ state.myPending.push(c.name); p++; } });
+  BULK=[]; renderBulk(); $('#b-in').value=''; save(); renderTransfer(); renderPicker();
+  $('#b-status').textContent=`★を付けました（今週出走 ${a}頭・出走待ち ${p}頭）`; });
 
 /* ---------- カスタム背景 ---------- */
 function syncCustom(){ const c=state.settings.custom, on=state.settings.theme==='custom';
