@@ -22,6 +22,7 @@ jobs:
   fetch:
     runs-on: ubuntu-latest
     timeout-minutes: 210   # 木曜は 15:45 起動〜18:30 まで待つことがある
+    # 失敗（GitHub からメールが届く）になるのは: 出馬表トップの形式が読めない／木曜に週末の出馬表を取れなかった（年末年始を除く）
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -39,6 +40,7 @@ jobs:
           esac
           python3 tools/fetch_races.py $ARGS
       - name: Commit
+        if: ${{ !cancelled() }}   # 取得が失敗扱い（exit 1）でも、取れた分は保存する
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"

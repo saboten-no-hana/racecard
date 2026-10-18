@@ -3,7 +3,7 @@ JRAホームページの出馬表から、一口クラブ名義の出走馬だ�
 
 - 木曜16時すぎ: 馬番なしの出馬表（出走確定）
 - レース前日10時すぎ: 枠番・馬番つきの出馬表
-が公開されるので、GitHub Actions で木曜夕方・金曜朝・土曜朝（・日曜朝）に実行する。
+が公開されるので、GitHub Actions で毎日 16:05〜 と 10:05〜 に確認する（.github/workflows/fetch-races.yml）。
 
 馬番なしの出馬表には馬主名が載らないため、馬ごとに「どのクラブの馬か（クラブ以外なら空）」を
 data/cache.json に記録して週をまたいで使い回す（個人馬主の名前は保存しない）。
@@ -23,6 +23,12 @@ data/cache.json に記録して週をまたいで使い回す（個人馬主の�
       # 翌日分の馬番つき出馬表が出るまで5分おきに確認して取得。翌日に開催がなく、新しい開催日もなければ何もしない
   確認は軽く（トップと対象の開催1つ＝最大3リクエスト）行い、出ていたら全体を取得する。
   出馬表は少しずつ載ることがあるので、全体を取得しても揃っていなければ5分後に取り直す。
+
+終了コード（GitHub Actions の失敗通知メールで気づけるように）:
+  1 = 出馬表トップのリンクの形式が読めなかった（ページ構造の変更）
+  1 = 木曜の --mode confirm で、締め切りまでに新しい開催日の出馬表を1つも取れなかった
+      （年末年始 12/24〜1/7 は開催の曜日が不規則なので除く）
+  それ以外は 0（平日の見張りで何も出ない・馬番待ちの打ち切りなどは正常として扱う）
 """
 import json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 from datetime import datetime, timedelta, timezone
@@ -226,6 +232,7 @@ def main():
         if wait > 0:
             print(f'{start:%H:%M} まで待機（{int(wait // 60)}分）', flush=True)
             time.sleep(wait)
+    state = None
     while True:
         f.memo = {}
         state = attempt(f, clubs, mode, ctx)
@@ -241,6 +248,21 @@ def main():
             break
         time.sleep(interval)
     print(f'リクエスト数: {f.count}')
+    return exit_code(mode, state, ctx, datetime.now(JST))
+
+def year_end(now):
+    """年末年始（有馬記念・ホープフルSのあと〜金杯のころ）は開催の曜日が不規則なので、木曜の失敗判定から外す"""
+    return (now.month == 12 and now.day >= 24) or (now.month == 1 and now.day <= 7)
+
+def exit_code(mode, state, ctx, now):
+    """取得が止まったことに Actions の失敗（GitHub からのメール）で気づけるようにする"""
+    if ctx.get('format_error'):
+        return 1
+    already = any(d > now.date().isoformat() for d in ctx.get('known', ()))   # 手動実行などで既に取得済み
+    if mode == 'confirm' and state == 'waiting' and now.weekday() == 3 and not year_end(now) and not already:
+        print('::error::木曜なのに、締め切りまでに週末の出馬表（新しい開催日）を取れなかった。'
+              'ページ構造の変更か、発表の遅れの可能性。19:05 の安全網の結果も確認すること', flush=True)
+        return 1
     return 0
 
 def read_meeting(f, mt):
@@ -288,6 +310,10 @@ def attempt(f, clubs, mode, ctx):
         if m:
             d = m.group(2)
             meetings.append({'cname': c, 'venue': VENUES.get(m.group(1), m.group(1)), 'date': f'{d[:4]}-{d[4:6]}-{d[6:]}'})
+    if not meetings:
+        print('::error::出馬表トップに開催へのリンクはあるが、形式が読めなかった（ページ構造の変更）:', lists[:3], flush=True)
+        ctx['format_error'] = True
+        return 'skip'
     dates = sorted({x['date'] for x in meetings})
     print(datetime.now(JST).strftime('%H:%M'), '開催:', ', '.join(f"{x['date']} {x['venue']}" for x in meetings), flush=True)
 
