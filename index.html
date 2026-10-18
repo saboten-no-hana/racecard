@@ -6,6 +6,21 @@
 <meta name="description" content="一口出資馬の出走情報を1枚の画像にまとめて、Xに投稿できる形で書き出すツール">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>出資馬出走カードメーカー</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1f5c3a">
+<!-- OGP（og.png は架空の馬名で作ったサンプル画像。クラブの勝負服は Wikimedia Commons の CC0 画像） -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="出資馬出走カードメーカー">
+<meta property="og:title" content="出資馬出走カードメーカー">
+<meta property="og:description" content="今週末に出走する一口出資馬を、勝負服・レース番号・枠色つき馬番入りの1枚の画像に。複数クラブ対応・無料・登録不要。">
+<meta property="og:url" content="https://saboten-no-hana.github.io/racecard/">
+<meta property="og:image" content="https://saboten-no-hana.github.io/racecard/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="出走予定の出資馬を勝負服つきで並べた画像の例">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
@@ -141,6 +156,12 @@ details.silks-edit[open]{padding-bottom:12px;display:grid;gap:10px}
 .prow button.add[disabled]{opacity:.6;cursor:default}
 .pempty{font-size:13px;color:var(--muted);margin:6px 0}
 .scr{color:var(--danger);font-weight:700}
+.prow.done{opacity:.55}
+.scr-warn,.scr-note{border:1px solid var(--danger);color:var(--danger);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;margin:0 0 10px}
+.scr-note{margin:4px 0 10px}
+.fld-st{max-width:240px}
+.kpill.scr{background:var(--danger);color:#fff;border-color:var(--danger)}
+.pend{font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;letter-spacing:0}
 details.transfer{border:1px dashed var(--line);border-radius:10px;padding:0 12px}
 details.transfer>summary{cursor:pointer;padding:10px 0;font-size:13px;font-weight:700;color:var(--muted)}
 details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
@@ -208,6 +229,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
       <h2>出走馬<b id="count">0</b></h2>
       <button class="primary" id="add" type="button">＋ 馬を追加</button>
     </div>
+    <p class="scr-warn" id="scr-warn" role="status" hidden></p>
     <div id="list"></div>
     <p class="note">勝負服は各クラブの登録内容をもとに描いていますが、違っていたら「勝負服を設定」で直せます。写真は自分で撮影したものを使ってください（クラブ提供写真の転載は各クラブの規約を確認）。</p>
     <div class="foot-actions">
@@ -350,6 +372,12 @@ function customTheme(c){
 const uid = () => Math.random().toString(36).slice(2,9);
 const pad2 = n => String(n).padStart(2,'0');
 const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const todayYmd = () => ymd(new Date());
+/* 開催週: 火曜〜翌月曜をひとまとまりとみなす（3日間開催の月曜は前の土日と同じ週）。返り値はその週の火曜の日付 */
+function meetWeek(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); if(!m) return ''; const d=new Date(+m[1],m[2]-1,+m[3]); d.setDate(d.getDate()-(d.getDay()+5)%7); return ymd(d); }
+const isPastWeek = h => !!h.date && !!meetWeek(h.date) && meetWeek(h.date) < meetWeek(todayYmd()); /* 先週までの馬 */
+const STATUS_LABEL = {'取消':'出走取消','除外':'競走除外'};
+const runCount = hs => hs.filter(h=>!h.status).length; /* 頭数は取消・除外を除く */
 function weekendDates(){ // this weekend if today is Sat/Sun, otherwise the coming one
   const d=new Date(); const wd=d.getDay();
   const sat=new Date(d); sat.setDate(d.getDate()+(wd===0?-1:(6-wd)));
@@ -582,7 +610,7 @@ function bandsOf(entries,cols){
 const ROW_PREF={tall1:.135, tall2:.25, wide:118, wideColW:520}; /* 縦長1列は幅×0.11、縦長2列は列幅×0.25、横長は行118px（列が減るなら100pxまで）・列幅520px */
 function headerTop(W0,H0,S,hs){
   const ts=Math.round(Math.min(W0*.06,H0*.068)), pad=Math.round(W0*.05), ds=Math.round(ts*.46);
-  let y=pad+ts*1.08; if(rangeText(hs)||(S.showCount&&hs.length)||S.handle) y+=ds*1.5;
+  let y=pad+ts*1.08; if(rangeText(hs)||(S.showCount&&runCount(hs))||S.handle) y+=ds*1.5;
   return {ts,pad,top:y+ts*.3+ts*.55};
 }
 function flowCols(entries,cap,unit){ /* 横長用: 列の高さ cap（行の高さ単位）に詰める。日が変わる時と、見出しの後に1行も入らない時は次の列へ */
@@ -704,15 +732,19 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   ctx.textBaseline='alphabetic'; ctx.textAlign='left';
   const ss=h*.72, sx=nextX+ip*.8, sy=y+(h-ss)/2;
   const simg=imgs[silksImgSrc(hr)];
+  const scr=STATUS_LABEL[hr.status]||''; /* 出走取消・競走除外: 赤いバッジ＋馬名に取り消し線、勝負服を薄く（10/18〜） */
+  if(scr) ctx.globalAlpha=.45;
   if(simg) drawSilksImg(ctx,simg,sx,sy,ss,T.halo); else drawSilks(ctx,sx,sy,ss,silksHex(hr),T.halo);
+  ctx.globalAlpha=1;
   const tx=sx+ss+ip*.8; let right=x+w-ip;
   const img=hr.photo&&imgs[hr.photo];
   if(img){ const ps=h-ip*1.4, px=right-ps, py=y+(h-ps)/2; const sw=img.naturalWidth, sh=img.naturalHeight, m=Math.min(sw,sh);
     ctx.save(); rr(ctx,px,py,ps,ps,h*.08); ctx.clip(); ctx.drawImage(img,(sw-m)/2,(sh-m)/2,m,m,px,py,ps,ps); ctx.restore(); right=px-ip*.8; }
-  const label=(S.showKuchi && hr.kuchi && hr.kuchi!=='none')?{win:'口取り 当選',wait:'口取り 抽選待ち',lose:'口取り 落選'}[hr.kuchi]:'';
+  const label=scr||((S.showKuchi && hr.kuchi && hr.kuchi!=='none')?{win:'口取り 当選',wait:'口取り 抽選待ち',lose:'口取り 落選'}[hr.kuchi]:'');
   let inlineBadge=false;
   const paintBadge=(px,py,pw,ph,fs)=>{ rr(ctx,px,py,pw,ph,ph/2);
-    if(hr.kuchi==='win'){ ctx.fillStyle=T.accent; ctx.fill(); ctx.fillStyle=T.accentInk; }
+    if(scr){ ctx.fillStyle='#d32f2f'; ctx.fill(); ctx.fillStyle='#ffffff'; }
+    else if(hr.kuchi==='win'){ ctx.fillStyle=T.accent; ctx.fill(); ctx.fillStyle=T.accentInk; }
     else { ctx.lineWidth=2; ctx.strokeStyle=hr.kuchi==='wait'?T.accent:T.sub; ctx.stroke(); ctx.fillStyle=hr.kuchi==='wait'?T.accent:T.sub; }
     ctx.font=`900 ${fs}px ${F.body}`; ctx.textAlign='center'; ctx.fillText(label,px+pw/2,py+ph/2+fs*.36); ctx.textAlign='left'; };
   if(label){
@@ -725,12 +757,17 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   const chipH=sA*1.55; const block=chipH+g+sB+g+sC+g*.7+sD; let cy=y+(h-block)/2;
   const club=clubLabel(hr);
   const inlineB=(x0)=>{ const fs=Math.round(sA); ctx.font=`900 ${fs}px ${F.body}`; const pw=ctx.measureText(label).width+fs*1.2; if(x0+pw<=right) paintBadge(x0,cy,pw,chipH,fs); };
-  if(club){ const f=fit(ctx,club,700,F.body,sA,tw-sA); const cw=ctx.measureText(f.t).width+sA*1.1;
-    rr(ctx,tx,cy,cw,chipH,chipH*.25); ctx.fillStyle=T.chipBg; ctx.fill(); ctx.fillStyle=T.chipFg; ctx.fillText(f.t,tx+sA*.55,cy+chipH*.5+f.s*.36);
-    if(inlineBadge) inlineB(tx+cw+sA*.6); }
-  else if(inlineBadge) inlineB(tx);
+  let cx0=tx;
+  if(inlineBadge&&scr){ /* 取消・除外は必ず見せたいので、狭い時はクラブ名より前に置く */
+    const fs=Math.round(sA); ctx.font=`900 ${fs}px ${F.body}`; const pw=ctx.measureText(label).width+fs*1.2; paintBadge(tx,cy,pw,chipH,fs); cx0=tx+pw+sA*.6; }
+  if(club){ const f=fit(ctx,club,700,F.body,sA,Math.max(20,tx+tw-cx0-sA)); const cw=ctx.measureText(f.t).width+sA*1.1;
+    rr(ctx,cx0,cy,cw,chipH,chipH*.25); ctx.fillStyle=T.chipBg; ctx.fill(); ctx.fillStyle=T.chipFg; ctx.fillText(f.t,cx0+sA*.55,cy+chipH*.5+f.s*.36);
+    if(inlineBadge&&!scr) inlineB(cx0+cw+sA*.6); }
+  else if(inlineBadge&&!scr) inlineB(tx);
   cy+=chipH+g;
-  const nm=fit(ctx,hr.name||'（馬名）',900,F.body,sB,tw); ctx.fillStyle=T.fg; ctx.fillText(nm.t,tx,cy+sB*.86); cy+=sB+g;
+  const nm=fit(ctx,hr.name||'（馬名）',900,F.body,sB,tw); ctx.fillStyle=scr?T.sub:T.fg; ctx.fillText(nm.t,tx,cy+sB*.86);
+  if(scr){ const nw=ctx.measureText(nm.t).width; ctx.fillRect(tx,cy+sB*.86-nm.s*.34,nw,Math.max(2,nm.s*.07)); }
+  cy+=sB+g;
   const lc=hr.raceName||'';
   const c=fit(ctx,lc,700,F.body,sC,tw); ctx.fillStyle=T.fg; ctx.fillText(c.t,tx,cy+sC*.86); cy+=sC+g*.7;
   const ld=[hr.time?hr.time+' 発走':'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), hr.jockey].filter(Boolean).join('  /  ');
@@ -753,7 +790,7 @@ async function render(){
   const S=state.settings, T=S.theme==='custom'?customTheme(S.custom):(THEMES[S.theme]||THEMES.turf);
   if(S.theme==='custom'&&S.custom&&S.custom.image) await loadImg(S.custom.image);
   const hs=state.horses;
-  const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
+  const txt=[S.title,S.handle,'口取り当選抽選待ち落選発走日月火水木金土つづき日付未定出資馬頭出走（馬名）取消競走除外',...hs.flatMap(h=>[clubLabel(h),h.name,h.venue,h.raceName,h.jockey,h.surface])].join('');
   try{ await Promise.all([
     document.fonts.load(`40px "IPAexGothic"`,txt+'0123456789.–RSATSUNMONWEDTHUFRI@_')
   ]); }catch(e){}
@@ -768,7 +805,7 @@ async function render(){
   /* 見出しの英字（WEEKEND RUNNERS）は10/18に廃止。アカウント名は日付の行の右端へ */
   const tf=fit(ctx,S.title||'',400,F.display,ts,W-pad*2); ctx.fillStyle=T.fg; ctx.fillText(tf.t,pad,y+tf.s*.9); y+=ts*1.08;
   const rt=rangeText(hs);
-  const ct=S.showCount&&hs.length?`${hs.length}頭`:''; /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
+  const ct=S.showCount&&runCount(hs)?`${runCount(hs)}頭`:''; /* 取消・除外は数えない */ /* 頭数は日付の右に（10/18〜。以前は画像の下端） */
   if(rt||ct||S.handle){ const ds=Math.round(ts*.46), by=y+ds*1.15; let cx=pad;
     if(rt){ ctx.font=`600 ${ds}px ${F.num}`; ctx.fillStyle=T.sub; ls(ctx,ds*.05); ctx.fillText(rt,cx,by); cx+=ctx.measureText(rt).width; ls(ctx,0); cx+=ds*.9; }
     if(ct){ if(rt){ ctx.fillStyle=T.rowLine; ctx.fillRect(cx-ds*.45-1,by-ds*.78,2,ds*.86); }
@@ -796,6 +833,8 @@ async function render(){
       });
     }
   }
+  const sw=$('#scr-warn'), sc=hs.filter(h=>h.status);
+  sw.hidden=!sc.length; sw.textContent=sc.length?`出走取消・競走除外の馬がいます（${sc.map(h=>(h.name||'馬名未入力')+'：'+h.status).join('、')}）。画像には「出走取消」「競走除外」と表示されます。載せない場合はその馬を削除してください。`:'';
   $('#out').src=cv.toDataURL('image/png'); pngBlob=null; cv.toBlob(b=>{ pngBlob=b; },'image/png'); /* 共有メニューはタップ直後に呼ぶ必要があるので先に作っておく */
 }
 let rT, rendering=false, again=false;
@@ -804,7 +843,7 @@ function schedule(){ clearTimeout(rT); rT=setTimeout(async()=>{ if(rendering){ a
 /* ---------- editor ---------- */
 const opt=(arr,val)=>arr.map(([v,l])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(l)}</option>`).join('');
 const colorOpt=val=>COLOR_NAMES.map(n=>`<option value="${n}"${n===val?' selected':''}>${n}</option>`).join('');
-function kpill(h){ if(!h.kuchi||h.kuchi==='none') return ''; const l={win:'口取り当選',wait:'抽選待ち',lose:'口取り落選'}[h.kuchi]; return `<span class="kpill ${h.kuchi}">${l}</span>`; }
+function kpill(h){ if(h.status) return `<span class="kpill scr">${esc(h.status)}</span>`; if(!h.kuchi||h.kuchi==='none') return ''; const l={win:'口取り当選',wait:'抽選待ち',lose:'口取り落選'}[h.kuchi]; return `<span class="kpill ${h.kuchi}">${l}</span>`; }
 function clubNote(h){
   if(h.clubId==='other') return '<p class="club-note">勝負服は下の「勝負服を設定」で入れてください。</p>';
   const c=clubById(h.clubId); if(!c) return '';
@@ -842,6 +881,8 @@ function cardHTML(h,open){
       <label class="fld"><span>枠（金曜以降）</span><select id="waku-${id}" data-f="waku">${opt(waku,h.waku)}</select></label>
       <label class="fld"><span>馬番（金曜以降）</span><input type="number" id="uma-${id}" data-f="umaban" min="1" max="18" inputmode="numeric" value="${esc(h.umaban)}"></label>
     </div>
+    ${h.status?`<p class="scr-note">${esc(STATUS_LABEL[h.status]||h.status)}の馬です。画像には「${esc(STATUS_LABEL[h.status]||h.status)}」と表示されます。載せない場合は「この馬を削除」を押してください。</p>`:''}
+    <label class="fld fld-st"><span>出走取消・競走除外</span><select id="st-${id}" data-f="status">${opt([['','なし（出走）'],['取消','出走取消'],['除外','競走除外']],h.status||'')}</select></label>
     <fieldset class="fld"><legend>口取り</legend><div class="seg">
       ${KUCHI.map(([v,l])=>`<label><input type="radio" name="kuchi-${id}" id="k-${v}-${id}" data-f="kuchi" value="${v}"${h.kuchi===v?' checked':''}><span>${l}</span></label>`).join('')}
     </div></fieldset>
@@ -886,7 +927,7 @@ const findH=id=>state.horses.find(h=>h.id===id);
 
 const list=$('#list');
 list.addEventListener('input',e=>{ const el=e.target; const card=el.closest('.horse'); if(!card) return; const h=findH(card.dataset.id);
-  if(el.dataset.f){ if(el.dataset.f==='clubId') return; h[el.dataset.f]=el.value; }
+  if(el.dataset.f){ if(el.dataset.f==='clubId') return; h[el.dataset.f]=el.value; if(el.dataset.f==='status'){ rerenderCard(h); schedule(); save(); return; } }
   else if(el.dataset.s){ h.customSilks={...silksSpec(h),[el.dataset.s]:el.value}; const cn=card.querySelector('.cn'); if(cn) cn.innerHTML=clubNote(h); }
   else return;
   refreshCard(card,h); schedule(); save(); });
@@ -901,7 +942,7 @@ list.addEventListener('click',e=>{ const b=e.target.closest('button[data-act]');
 });
 
 $('#add').addEventListener('click',()=>{ const last=state.horses[state.horses.length-1];
-  const h={id:uid(),name:'',clubId:last?.clubId||'',ownerLabel:'',date:last?.date||weekendDates()[0],venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',kuchi:'none',photo:'',customSilks:null};
+  const h={id:uid(),name:'',clubId:last?.clubId||'',ownerLabel:'',date:last?.date||weekendDates()[0],venue:'',r:'',time:'',raceName:'',surface:'芝',dist:'',jockey:'',waku:'',umaban:'',status:'',kuchi:'none',photo:'',customSilks:null};
   state.horses.push(h); renderList(h.id); schedule(); save();
   const card=document.querySelector(`.horse[data-id="${h.id}"]`); card.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}); card.querySelector('[data-f="name"]').focus({preventScroll:true}); });
 const clearBtn=$('#clear');
@@ -986,7 +1027,7 @@ function raceLabel(x){
   return `${x.raceName}（${c==='オープン'?'OP':c}）`;
 }
 function fromData(x){ return {id:uid(),horseId:x.horseId,name:x.name,clubId:x.clubId,ownerLabel:'',date:x.date,venue:x.venue,r:String(x.r),time:x.time,
-  raceName:raceLabel(x),surface:x.surface||'芝',dist:String(x.dist||''),jockey:x.jockey,waku:x.waku,umaban:x.umaban,kuchi:'none',photo:'',customSilks:null}; }
+  raceName:raceLabel(x),surface:x.surface||'芝',dist:String(x.dist||''),jockey:x.jockey,waku:x.waku,umaban:x.umaban,status:x.status||'',kuchi:'none',photo:'',customSilks:null}; }
 const inList=x=>state.horses.some(h=>h.horseId===x.horseId&&h.date===x.date);
 function addFromData(xs){
   if(!xs.length) return;
@@ -998,6 +1039,7 @@ function syncFromData(){ // 追加済みの馬を最新の出馬表で更新（�
   state.horses.forEach(h=>{ if(!h.horseId) return; const x=RACES.horses.find(y=>y.horseId===h.horseId&&y.date===h.date); if(!x) return;
     const nv=fromData(x); let ch=false;
     ['venue','r','time','raceName','surface','dist','jockey','waku','umaban'].forEach(k=>{ if(nv[k]&&h[k]!==nv[k]){ h[k]=nv[k]; ch=true; } });
+    if((h.status||'')!==nv.status){ h.status=nv.status; ch=true; } /* 取消・除外（画像にも表示。消すかどうかは利用者が決める） */
     if(ch) n++; });
   return n;
 }
@@ -1010,21 +1052,22 @@ function renderPicker(){
   const rk={}; const rank=x=>{ if(!rk[x.date]) rk[x.date]=venueRanker((HELD&&HELD[x.date])||[]); return rk[x.date](x.venue); };
   xs=xs.slice().sort((a,b)=>a.date.localeCompare(b.date)||rank(a)-rank(b)||a.r-b.r||(+a.umaban||99)-(+b.umaban||99));
   let html='', cur='';
+  const today=todayYmd(), ended=x=>x.date<today; /* 今日より前の日付は終了（次の木曜まで races.json に残る） */
   xs.forEach(x=>{
-    const g=x.date+'|'+x.venue;
-    if(g!==cur){ cur=g; html+=`<div class="pday">${esc(md(x.date))}　${esc(x.venue)}</div>`; }
+    const g=x.date+'|'+x.venue, done=ended(x);
+    if(g!==cur){ cur=g; html+=`<div class="pday">${esc(md(x.date))}　${esc(x.venue)}${done?'　<span class="pend">終了</span>':''}</div>`; }
     const c=clubById(x.clubId), added=inList(x), scr=x.status?`<span class="scr">${esc(x.status)}</span> `:'';
     const num=x.umaban?` <b>${esc(x.umaban)}番</b>`:'';
-    html+=`<div class="prow" data-k="${esc(x.key)}">${c&&c.img?`<img src="${esc(c.img)}" alt="">`:'<span></span>'}
+    html+=`<div class="prow${done?' done':''}" data-k="${esc(x.key)}">${c&&c.img?`<img src="${esc(c.img)}" alt="">`:'<span></span>'}
       <div style="min-width:0"><div class="pn">${scr}${esc(x.name)}</div><div class="pr"><b>${x.r}R</b>${num}　${esc(raceLabel(x))}　${esc(x.jockey)}　${esc(c?c.name:'')}</div></div>
       <button type="button" class="star" data-act="star" aria-pressed="${isMine(x.horseId)}" aria-label="出資馬として登録" title="出資馬として登録">${isMine(x.horseId)?'★':'☆'}</button>
-      <button type="button" class="add" data-act="add"${added||x.status?' disabled':''}>${added?'追加済み':x.status?esc(x.status):'追加'}</button></div>`;
+      <button type="button" class="add" data-act="add"${added||x.status||done?' disabled':''}>${added?'追加済み':x.status?esc(x.status):done?'終了':'追加'}</button></div>`;
   });
-  L.innerHTML=html||'<p class="pempty">条件に合う馬はいません。</p>';
+  const allDone=RACES.horses.length&&RACES.horses.every(ended);
+  L.innerHTML=(allDone?'<p class="pempty">この出馬表のレースはすべて終わりました。次の週の出走馬は木曜16時すぎに載ります。</p>':'')+(html||'<p class="pempty">条件に合う馬はいません。</p>');
   // banners
-  const firstDate=(RACES.days[0]||{}).date||'';
-  const mineNot=RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status);
-  const old=state.horses.filter(h=>h.date&&firstDate&&h.date<firstDate);
+  const mineNot=RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status&&!ended(x));
+  const old=state.horses.filter(isPastWeek); /* 以前は races.json の最初の日より前で判定 → 日曜に土曜の馬が「先週まで」になっていた（10/18修正） */
   let b='';
   if(mineNot.length) b+=`<div class="banner"><p>★を付けた出資馬が今週 <b>${mineNot.length}頭</b> 出走します：${esc(mineNot.map(x=>x.name).join('、'))}</p><button type="button" class="primary" data-act="add-mine">まとめて追加</button></div>`;
   if(old.length) b+=`<div class="banner"><p>先週までの馬が <b>${old.length}頭</b> 残っています。</p><button type="button" data-act="del-old">消す</button></div>`;
@@ -1035,8 +1078,8 @@ $('#picker').addEventListener('click',e=>{ const b=e.target.closest('button[data
   const row=b.closest('.prow'), x=row&&RACES.horses.find(y=>y.key===row.dataset.k);
   if(a==='add'&&x) addFromData([x]);
   if(a==='star'&&x){ state.myHorses=isMine(x.horseId)?state.myHorses.filter(i=>i!==x.horseId):[...state.myHorses,x.horseId]; state.myNames[x.horseId]=x.name; save(); renderPicker(); }
-  if(a==='add-mine') addFromData(RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status));
-  if(a==='del-old'){ const f=(RACES.days[0]||{}).date; state.horses=state.horses.filter(h=>!h.date||h.date>=f); renderList(); renderPicker(); schedule(); save(); }
+  if(a==='add-mine'){ const t=todayYmd(); addFromData(RACES.horses.filter(x=>isMine(x.horseId)&&!inList(x)&&!x.status&&x.date>=t)); }
+  if(a==='del-old'){ state.horses=state.horses.filter(h=>!isPastWeek(h)); renderList(); renderPicker(); schedule(); save(); }
 });
 ['#p-club','#p-q','#p-mine'].forEach(s=>$(s).addEventListener(s==='#p-q'?'input':'change',renderPicker));
 async function loadRaces(){
