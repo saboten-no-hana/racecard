@@ -208,7 +208,7 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
         <label class="fld"><span>この端末の引き継ぎコード</span>
           <div class="row-inline"><input type="text" id="t-code" readonly><button type="button" id="t-copy">コードをコピー</button><button type="button" id="t-link">リンクをコピー</button></div></label>
         <label class="fld"><span>別の端末のコードを読み込む（今の★に追加されます）</span>
-          <div class="row-inline"><input type="text" id="t-in" placeholder="RC1: や RC2: から始まるコード" autocomplete="off"><button type="button" class="primary" id="t-load">読み込む</button></div></label>
+          <div class="row-inline"><input type="text" id="t-in" placeholder="RC1: などから始まるコード" autocomplete="off"><button type="button" class="primary" id="t-load">読み込む</button></div></label>
         <p class="tstatus" id="t-status" role="status"></p>
         <p class="hint">★はこのブラウザの中にだけ保存されています。スマホとPCなど別の端末で使うときは、コードかリンクを自分宛てに送って、もう一方の端末で読み込んでください。</p>
       </details>
@@ -1105,20 +1105,31 @@ $('#p-club').addEventListener('change',e=>{ try{ localStorage.setItem('racecard.
 /* ---------- ★の引き継ぎ ---------- */
 // コード形式: RC1: + 馬ID（10桁）を36進数にして「.」でつないだもの
 //            RC2: + RC1と同じ馬ID部分 + 「~」 + 出走待ちの馬名（1文字を U+30A0 からの差の36進2桁にして「-」でつなぐ）
-//            出走待ちの馬名がない時は従来どおり RC1 を出す
+//            RC3: 馬IDのあとに「_」+ 馬名（RC2と同じ符号化）を付けられる形。「~」以降の出走待ちは省略可（2026-10-19〜）
+//                 例 RC3:xfbail_0p0b0r.xh3mpa~020g21  別の端末に races.json がない週でも★一覧に馬名を出すため
+//            馬名も出走待ちもない時は RC1 を出す。読み込みは RC1・RC2・RC3 のすべてに対応
 const KANA_NAME=/^[ァ-ヺ][ァ-ヺー]{1,8}$/; /* JRAの馬名はカタカナ2〜9文字 */
 const encName=n=>[...n].map(c=>(c.charCodeAt(0)-0x30A0).toString(36).padStart(2,'0')).join('');
 function decName(t){ if(!/^([0-9a-z]{2})+$/i.test(t)) return null; let n=''; for(let i=0;i<t.length;i+=2) n+=String.fromCharCode(0x30A0+parseInt(t.slice(i,i+2),36)); return KANA_NAME.test(n)?n:null; }
-function encodeMine(ids,names=[]){ const a=ids.map(id=>Number(id).toString(36)).join('.'); return names.length?'RC2:'+a+'~'+names.map(encName).join('-'):'RC1:'+a; }
-function decodeMine(code){ /* → {ids, names} または null */
+function encodeMine(ids,names=[],idNames={}){ let named=false;
+  const a=ids.map(id=>{ const t=Number(id).toString(36), n=idNames[id]; if(n&&KANA_NAME.test(n)){ named=true; return t+'_'+encName(n); } return t; }).join('.');
+  if(named) return 'RC3:'+a+(names.length?'~'+names.map(encName).join('-'):'');
+  return names.length?'RC2:'+a+'~'+names.map(encName).join('-'):'RC1:'+a; }
+function decodeMine(code){ /* → {ids, names, idNames?} または null */
   code=String(code||'').trim().replace(/^.*#star=/,'');
   try{ code=decodeURIComponent(code); }catch(e){}
   const ids=t=>t.split('.').filter(Boolean).map(x=>String(parseInt(x,36))).filter(id=>/^\d{10}$/.test(id));
   let m=code.match(/^RC1:([0-9a-z.]*)$/i); if(m) return {ids:ids(m[1]),names:[]};
-  m=code.match(/^RC2:([0-9a-z.]*)~([0-9a-z-]*)$/i); if(m) return {ids:ids(m[1]),names:[...new Set(m[2].split('-').filter(Boolean).map(decName).filter(Boolean))]};
+  const pend=t=>[...new Set((t||'').split('-').filter(Boolean).map(decName).filter(Boolean))];
+  m=code.match(/^RC2:([0-9a-z.]*)~([0-9a-z-]*)$/i); if(m) return {ids:ids(m[1]),names:pend(m[2])};
+  m=code.match(/^RC3:([0-9a-z._]*)(?:~([0-9a-z-]*))?$/i);
+  if(m){ const idNames={}, list=[];
+    m[1].split('.').filter(Boolean).forEach(x=>{ const [t,nm]=x.split('_'), id=String(parseInt(t,36)); if(!/^\d{10}$/.test(id)) return;
+      list.push(id); const n=nm&&decName(nm); if(n) idNames[id]=n; });
+    return {ids:[...new Set(list)],names:pend(m[2]),idNames}; }
   return null;
 }
-const myCode=()=>encodeMine(state.myHorses,state.myPending);
+const myCode=()=>encodeMine(state.myHorses,state.myPending,state.myNames);
 const myTotal=()=>state.myHorses.length+state.myPending.length;
 function shareLink(){ return location.origin+location.pathname+'#star='+encodeURIComponent(myCode()); }
 function renderTransfer(){
@@ -1137,6 +1148,7 @@ function resolvePending(){
 const knownName=n=>state.myPending.includes(n)||state.myHorses.some(id=>state.myNames[id]===n);
 function importMine(d){
   const before=myTotal(); state.myHorses=[...new Set([...state.myHorses,...d.ids])];
+  Object.entries(d.idNames||{}).forEach(([id,n])=>{ if(!state.myNames[id]) state.myNames[id]=n; });
   if(RACES) RACES.horses.forEach(x=>{ if(d.ids.includes(x.horseId)) state.myNames[x.horseId]=x.name; });
   d.names.forEach(n=>{ if(!knownName(n)) state.myPending.push(n); });
   resolvePending(); save(); renderTransfer(); renderPicker(); return myTotal()-before;
@@ -1148,7 +1160,7 @@ $('#t-copy').addEventListener('click',()=>{ if(!myTotal()){ $('#t-status').textC
 $('#t-link').addEventListener('click',()=>{ if(!myTotal()){ $('#t-status').textContent='★を付けた馬がまだいません'; return; } copyText(shareLink(),'リンクをコピーしました。もう一方の端末で開くと読み込めます'); });
 const loadedMsg=(d,n)=>`${d.ids.length+d.names.length}頭分を読み込みました（新しく★が付いた馬 ${n}頭）`;
 $('#t-load').addEventListener('click',()=>{ const d=decodeMine($('#t-in').value);
-  if(!d){ $('#t-status').textContent='コードの形式が違います。RC1: か RC2: から始まるコードを貼り付けてください'; return; }
+  if(!d){ $('#t-status').textContent='コードの形式が違います。RC1:・RC2:・RC3: から始まるコードを貼り付けてください'; return; }
   const n=importMine(d); $('#t-in').value=''; $('#t-status').textContent=loadedMsg(d,n); });
 $('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data-id],button[data-name]'); if(!b) return;
   if(b.dataset.id) state.myHorses=state.myHorses.filter(i=>i!==b.dataset.id); else state.myPending=state.myPending.filter(n=>n!==b.dataset.name);
