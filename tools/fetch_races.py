@@ -223,7 +223,7 @@ def main():
     known = set()
     if os.path.exists(OUT):
         known = {d['date'] for d in json.load(open(OUT, encoding='utf-8')).get('days', [])}
-    ctx = {'known': known, 'prev': {}}
+    ctx = {'known': known, 'prev': {}, 'verified': set()}
     if mode and not offline:
         start = at_jst(arg('--start', '00:00'))
         until = at_jst(arg('--until', '23:59'))
@@ -235,7 +235,14 @@ def main():
     state = None
     while True:
         f.memo = {}
-        state = attempt(f, clubs, mode, ctx)
+        try:
+            state = attempt(f, clubs, mode, ctx)
+            ctx['last_error'] = False
+        except Exception as e:   # 一時的な通信エラーで見張りごと止めない（5分後に取り直す）
+            print(f'::warning::取得中にエラー: {e!r}', flush=True)
+            ctx['last_error'] = True
+            # まだ一度も取れていなければ「未発表」と同じ扱い（平日の見張りは --watch-until で終わる）
+            state = 'error' if not mode else ('notready' if ctx.get('ok') else 'waiting')
         print(f'  → {state}（ここまでのリクエスト数: {f.count}）', flush=True)
         if state not in ('waiting', 'notready') or not mode or offline:
             break
@@ -256,7 +263,10 @@ def year_end(now):
 
 def exit_code(mode, state, ctx, now):
     """取得が止まったことに Actions の失敗（GitHub からのメール）で気づけるようにする"""
-    if ctx.get('format_error'):
+    if ctx.get('format_error') or state == 'error':
+        return 1
+    if ctx.get('last_error') and not ctx.get('ok'):
+        print('::error::最後まで通信エラーで、一度も取得できなかった', flush=True)
         return 1
     already = any(d > now.date().isoformat() for d in ctx.get('known', ()))   # 手動実行などで既に取得済み
     if mode == 'confirm' and state == 'waiting' and now.weekday() == 3 and not year_end(now) and not already:
@@ -361,12 +371,20 @@ def attempt(f, clubs, mode, ctx):
         for race in races:
             rno = race['r']
             unknown = [h for h in race['horses'] if h['horseId'] not in club_of]
-            if unknown and any(h['umaban'] for h in race['horses']) and rno in race_pages:
+            # クラブ馬として記録済みの馬も、馬番が出た明日以降のレースでは個別ページの馬主名で確かめ直す
+            # （クラブを離れて地方に移った馬が中央に戻ってきた時に、クラブ馬として載せないため）。1回の実行で1レース1回だけ
+            rdate = race.get('date', mt['date'])
+            recheck = rdate > today and (mt['cname'], rno) not in ctx['verified'] and any(club_of.get(h['horseId']) for h in race['horses'])
+            if (unknown or recheck) and any(h['umaban'] for h in race['horses']) and rno in race_pages:
+                ctx['verified'].add((mt['cname'], rno))
                 detail = parse_race_tables(f.get(race_pages[rno]))
                 stats['detail'] += 1
                 for d in (detail[0]['horses'] if detail else []):
                     if d['owner']:
+                        was = club_of.get(d['horseId'])
                         remember(d, d['owner'])
+                        if was and club_of[d['horseId']] != was:
+                            print(f"    名義が変わった: {d['name']}（{was} → {club_of[d['horseId']] or 'クラブ以外'}）", flush=True)
                 unknown = [h for h in race['horses'] if h['horseId'] not in club_of]
             for h in unknown:
                 if not h['horseCname']:
@@ -418,6 +436,7 @@ def attempt(f, clubs, mode, ctx):
         json.dump(out, open(OUT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         print(f'data/races.json を更新: {len(result)} 頭')
     json.dump(cache, open(CACHE, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'), sort_keys=True)
+    ctx['ok'] = True
     if not complete:
         print('まだ揃っていない開催がある（JRAのサイトへの反映途中）')
         return 'notready'
