@@ -1,0 +1,22 @@
+name: テスト
+# 取得処理（tools/fetch_races.py）と画面のスクリプトの自動テスト。JRA にはアクセスしない（偽のページで動かす）。
+# 失敗すると GitHub からメールが届く。出馬表の更新コミット（data/ だけの変更）では動かない。
+on:
+  push:
+    paths-ignore: ['data/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install beautifulsoup4==4.12.3 numpy zxing-cpp
+      - run: python3 -m unittest discover -v -s tools -p 'test_*.py'

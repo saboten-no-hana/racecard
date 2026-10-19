@@ -55,6 +55,11 @@ def load_clubs():
         raise SystemExit('clubs.js からクラブを読み取れませんでした')
     return out
 
+def load_club_list():
+    """clubs.js から [{id, name}]（要約の表示用）"""
+    src = open(os.path.join(ROOT, 'clubs.js'), encoding='utf-8').read()
+    return [{'id': m.group(1), 'name': m.group(2)} for m in re.finditer(r"\{id:'([^']+)'[^\n]*?name:'([^']+)'", src)]
+
 def norm_owner(s):
     s = unicodedata.normalize('NFKC', s or '')
     s = re.sub(r'\((株|有|合|同)\)|株式会社|有限会社|合同会社|一般社団法人', '', s)
@@ -173,6 +178,8 @@ def parse_rows(table):
         h['jockey'] = text(jk)
         age = tr.select_one('p.age') or tr.select_one('td.age')
         h['sexAge'] = text(age).split('/')[0]
+        m = re.search(r'(\d+(?:\.\d)?)', text(tr.select_one('td.weight')))   # 負担重量（斤量）「55.0 kg」
+        h['weight'] = m.group(1) if m else ''
         rowtxt = text(tr)
         h['status'] = '取消' if '取消' in rowtxt else ('除外' if '除外' in rowtxt else '')
         horses.append(h)
@@ -241,6 +248,7 @@ def main():
         except Exception as e:   # 一時的な通信エラーで見張りごと止めない（5分後に取り直す）
             print(f'::warning::取得中にエラー: {e!r}', flush=True)
             ctx['last_error'] = True
+            ctx['errors'] = ctx.get('errors', 0) + 1
             # まだ一度も取れていなければ「未発表」と同じ扱い（平日の見張りは --watch-until で終わる）
             state = 'error' if not mode else ('notready' if ctx.get('ok') else 'waiting')
         print(f'  → {state}（ここまでのリクエスト数: {f.count}）', flush=True)
@@ -255,7 +263,39 @@ def main():
             break
         time.sleep(interval)
     print(f'リクエスト数: {f.count}')
-    return exit_code(mode, state, ctx, datetime.now(JST))
+    code = exit_code(mode, state, ctx, datetime.now(JST))
+    write_summary(mode, state, code, f.count, ctx)
+    return code
+
+def write_summary(mode, state, code, count, ctx):
+    """Actions の実行結果のページに要約を出す（保守用。GITHUB_STEP_SUMMARY がある時だけ）"""
+    path = os.environ.get('GITHUB_STEP_SUMMARY')
+    if not path:
+        return
+    names = {}
+    try:
+        names = {c['id']: c['name'] for c in load_club_list()}
+    except Exception:
+        pass
+    last = ctx.get('last')
+    L = ['## 出馬表の取得', '',
+         f"- モード: {mode or '1回だけ'}／結果: {state}／終了コード: {code}／リクエスト数: {count}"]
+    if ctx.get('errors'):
+        L.append(f"- 通信エラー: {ctx['errors']}回")
+    if last:
+        L += [f"- 開催: {'、'.join(last['meetings'])}",
+              f"- races.json: {'更新' if last['changed'] else '変更なし'}／クラブ馬 {last['total']}頭（馬番あり {last['umaban']}頭）"]
+        if last['scratched']:
+            L.append(f"- 取消・除外: {'、'.join(last['scratched'])}")
+        L += ['', '| クラブ | 頭数 |', '|---|---:|']
+        L += [f"| {names.get(k, k)} | {v} |" for k, v in sorted(last['hits'].items(), key=lambda kv: -kv[1])]
+        L += ['', f"一致しなかったクラブらしい名義: {'、'.join(last['miss']) or 'なし'}"]
+    else:
+        L.append('- 出馬表は取得していない（未発表・対象なし・エラー）')
+    if ctx.get('changed'):
+        L += ['', f"名義が変わった馬: {'、'.join(ctx['changed'])}"]
+    with open(path, 'a', encoding='utf-8') as fp:
+        fp.write('\n'.join(L) + '\n')
 
 def year_end(now):
     """年末年始（有馬記念・ホープフルSのあと〜金杯のころ）は開催の曜日が不規則なので、木曜の失敗判定から外す"""
@@ -385,6 +425,7 @@ def attempt(f, clubs, mode, ctx):
                         remember(d, d['owner'])
                         if was and club_of[d['horseId']] != was:
                             print(f"    名義が変わった: {d['name']}（{was} → {club_of[d['horseId']] or 'クラブ以外'}）", flush=True)
+                            ctx.setdefault('changed', []).append(f"{d['name']}（{was} → {club_of[d['horseId']] or 'クラブ以外'}）")
                 unknown = [h for h in race['horses'] if h['horseId'] not in club_of]
             for h in unknown:
                 if not h['horseCname']:
@@ -403,7 +444,7 @@ def attempt(f, clubs, mode, ctx):
                     'date': race.get('date', mt['date']), 'venue': race.get('venue', mt['venue']), 'r': rno,
                     'time': race.get('time', ''), 'raceName': race.get('raceName', ''), 'grade': race.get('grade', ''), 'cls': race.get('cls', ''),
                     'surface': race.get('surface', ''), 'dist': race.get('dist', ''),
-                    'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'status': h['status'],
+                    'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'weight': h['weight'], 'status': h['status'],
                 })
         print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']}", flush=True)
         if mt in check:
@@ -432,9 +473,14 @@ def attempt(f, clubs, mode, ctx):
     old = json.load(open(OUT, encoding='utf-8')) if os.path.exists(OUT) else {}
     if {k: v for k, v in old.items() if k != 'updated'} == {k: v for k, v in out.items() if k != 'updated'}:
         print('変更なし')
+        changed = False
     else:
         json.dump(out, open(OUT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
         print(f'data/races.json を更新: {len(result)} 頭')
+        changed = True
+    ctx['last'] = {'meetings': [f"{x['date']} {x['venue']}" for x in meetings], 'total': len(result), 'hits': hits,
+                   'miss': miss, 'changed': changed, 'umaban': sum(1 for x in result if x['umaban']),
+                   'scratched': [f"{x['name']}（{x['status']}）" for x in result if x['status']]}
     json.dump(cache, open(CACHE, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'), sort_keys=True)
     ctx['ok'] = True
     if not complete:
