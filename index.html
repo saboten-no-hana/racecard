@@ -1091,8 +1091,8 @@ async function loadRaces(){
     const counts={}; RACES.horses.forEach(x=>counts[x.clubId]=(counts[x.clubId]||0)+1);
     $('#p-club').innerHTML=`<option value="">すべてのクラブ（${RACES.horses.length}頭）</option>`+CLUBS.filter(c=>counts[c.id]).map(c=>`<option value="${c.id}">${esc(c.name)}（${counts[c.id]}頭）</option>`).join('');
     try{ const v=localStorage.getItem('racecard.pclub'); if(v&&counts[v]) $('#p-club').value=v; }catch(e){}
-    RACES.horses.forEach(x=>{ if(isMine(x.horseId)) state.myNames[x.horseId]=x.name; });
-    if(resolvePending()) save();
+    let named=false; RACES.horses.forEach(x=>{ if(isMine(x.horseId)&&state.myNames[x.horseId]!==x.name){ state.myNames[x.horseId]=x.name; named=true; } });
+    if(resolvePending()||named) save(); /* 馬名も保存する（以前は保存せず、races.json から消えた週に「ID …」表示へ戻っていた） */
     const n=syncFromData(); if(n){ renderList(); save(); U.textContent+=`／出走馬${n}頭を最新の内容に更新`; }
     renderPicker(); schedule();
   }catch(e){
