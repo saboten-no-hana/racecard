@@ -1,0 +1,63 @@
+# 一時的なワークフロー: 書き換え前の履歴の作成者情報を持つ Actions の実行記録を削除する。
+# 照合するアドレスはリポジトリに書かず、SHA-256 の値だけを持つ。実行後にこのファイルは削除する。
+name: 実行記録の掃除（一時）
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 該当する実行記録を削除
+        env:
+          TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SELF: ${{ github.run_id }}
+          TARGET: 5dfb463f0b19b32e6c68eba426d6af07db613c4a26a35fa419124cea32e90df3
+        run: |
+          python3 - <<'EOF'
+          import hashlib, json, os, urllib.request
+          tok, repo, me, target = os.environ['TOKEN'], os.environ['REPO'], int(os.environ['SELF']), os.environ['TARGET']
+          def call(method, path):
+              req = urllib.request.Request('https://api.github.com' + path, method=method, headers={
+                  'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28'})
+              with urllib.request.urlopen(req) as r:
+                  body = r.read()
+                  return json.loads(body) if body else None
+          def h(s):
+              return hashlib.sha256((s or '').strip().lower().encode()).hexdigest()
+          runs, page = [], 1
+          while True:
+              d = call('GET', f'/repos/{repo}/actions/runs?per_page=100&page={page}')
+              runs += d['workflow_runs']
+              if len(d['workflow_runs']) < 100:
+                  break
+              page += 1
+          hit = []
+          for r in runs:
+              hc = r.get('head_commit') or {}
+              mails = [(hc.get('author') or {}).get('email'), (hc.get('committer') or {}).get('email')]
+              if r['id'] != me and any(h(m) == target for m in mails):
+                  hit.append(r)
+          lines = [f'全 {len(runs)} 件のうち、削除対象 {len(hit)} 件', '']
+          ok = 0
+          for r in hit:
+              try:
+                  call('DELETE', f"/repos/{repo}/actions/runs/{r['id']}")
+                  ok += 1
+                  lines.append(f"- 削除: {r['name']} {r['created_at']}")
+              except Exception as e:
+                  lines.append(f"- 失敗: {r['name']} {r['created_at']} ({e})")
+          lines.append('')
+          lines.append(f'削除できた件数: {ok} / {len(hit)}')
+          print('\n'.join(lines))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('\n'.join(lines) + '\n')
+          if ok != len(hit):
+              raise SystemExit(1)
+          EOF
