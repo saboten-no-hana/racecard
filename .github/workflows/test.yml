@@ -1,5 +1,6 @@
 name: テスト
 # 取得処理（tools/fetch_races.py）と画面のスクリプトの自動テスト。JRA にはアクセスしない（偽のページで動かす）。
+# あわせて、コミットのメールアドレスが公開してよいものだけかを確かめる（tools/check_authors.py）。
 # 失敗すると GitHub からメールが届く。出馬表の更新コミット（data/ だけの変更）では動かない。
 on:
   push:
@@ -12,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: コミットのメールアドレスの確認
+        run: python3 tools/check_authors.py
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
