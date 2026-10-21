@@ -56,19 +56,20 @@ COMPOSE = r"""
   c.save(); rect(); c.strokeStyle = 'rgba(255,255,255,0.18)'; c.lineWidth = 2; c.stroke(); c.restore();
   /* 左の説明文 */
   const x = 64, maxW = cx - x - 48;
-  const fit = (t, w, size) => { let s = size; do { c.font = `${w} ${s}px ${IPA}`; } while (c.measureText(t).width > maxW && --s > 10); return s; };
+  const fit = (t, w, size, mw = maxW) => { let s = size; do { c.font = `${w} ${s}px ${IPA}`; } while (c.measureText(t).width > mw && --s > 10); return s; };
   c.textBaseline = 'alphabetic';
-  let y = 118;
+  let y = 100;
   c.fillStyle = '#e2bd5c'; c.font = `700 22px ${IPA}`; c.fillText('一口馬主の出走告知を、1枚の画像に', x, y);
   y += 30; c.fillStyle = '#f4efe1';
   const s1 = fit('出資馬出走', 700, 76); c.fillText('出資馬出走', x, y + s1);
   y += s1 * 1.18; const s2 = fit('カードメーカー', 700, 76); c.font = `700 ${s2}px ${IPA}`; c.fillText('カードメーカー', x, y + s2);
   y += s2 + 30; c.fillStyle = '#e2bd5c'; c.fillRect(x, y, 84, 4); c.fillStyle = 'rgba(255,255,255,0.10)'; c.fillRect(x + 94, y + 1, maxW - 94, 2);
-  y += 56;
-  const lines = ['JRAの出馬表から一口クラブの馬を自動で集計', '勝負服・枠色つき馬番・性齢・斤量を表示', '複数クラブ対応・無料・登録不要'];
+  y += 50;
+  const lines = ['一口クラブ馬を自動でリストアップ', 'レース名・騎手名・馬番（決定後）なども自動表示', '背景などのカスタムも可能', '複数クラブ対応・無料・登録不要'];
+  const ls = Math.min(...lines.map(t => fit(t, 700, 25, maxW - 24)));  /* 箇条書きは同じ大きさにそろえる */
   for (const t of lines) {
     c.fillStyle = '#e2bd5c'; c.beginPath(); c.arc(x + 7, y - 9, 5, 0, Math.PI*2); c.fill();
-    c.fillStyle = '#f4efe1'; const s = fit(t, 700, 25); c.font = `700 ${s}px ${IPA}`; c.fillText(t, x + 24, y); y += 46;
+    c.fillStyle = '#f4efe1'; c.font = `700 ${ls}px ${IPA}`; c.fillText(t, x + 24, y); y += 42;
   }
   c.fillStyle = '#b7c8b6'; c.font = `700 22px ${IPA}`; c.fillText('saboten-no-hana.github.io/racecard', x, H - 56);
   return cv.toDataURL('image/png');
