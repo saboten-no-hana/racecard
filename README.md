@@ -55,16 +55,21 @@ GitHub のリポジトリで **Actions → 出馬表の取得 → Run workflow**
 - 画面と画像の描画はすべて `index.html`（外部ライブラリなし）。QRコードの生成は `qr.js`、ホーム画面用は `manifest.webmanifest`・`sw.js`（Service Worker。公開ページ＝https の時だけ登録）。ローカルでは `python3 -m http.server` で開けます
 - テスト: `python3 -m unittest discover -s tools -p 'test_*.py'`（JRA にはアクセスせず、偽の出馬表ページで取得処理を確かめます。push のたびに `.github/workflows/test.yml` が実行）
 - フォントや勝負服の画像を差し替えた時は、`sw.js` の `STATIC` の番号を上げます（保存済みのものを使い続けるため）
+- OGP 画像（`og.png`）は `python3 tools/make_og.py` で作り直します（Playwright が必要。画面と同じ描画で縦長のカードを描きます）。作り直したら `index.html` の `og:image` の `?v=` の番号を上げます
 - クラブを追加する時は `clubs.js` にエントリを足し、勝負服画像のファイル名を `silks/sources.txt` に書いて push すると、`.github/workflows/fetch-silks.yml` が取得します
 
 ## 素材とライセンス
 
 - 勝負服の画像は Wikipedia の各クラブ法人の記事に掲載されている Wikimedia Commons の画像（CC0）を `silks/` に保存して使っています。手描きの勝負服の形は、Commons の勝負服の標示の見本（CC0、`silks/examples/`）によります
 - 写真は自分で撮影したものを使ってください。クラブ提供写真の転載は各クラブの規約を確認してください
-- `og.png` は架空の馬名で作ったサンプル画像です
+- `og.png` は架空の馬名で作ったサンプル画像です（`tools/make_og.py`）
 
 ### フォント
 
 画像の文字には [IPAexゴシック](https://moji.or.jp/ipafont/)（Version 004.01）を使っています。
 IPAフォントライセンスv1.0 に従い、フォントファイルは改変せずに `fonts/ipaexg.ttf` として同梱しています。
 ライセンス文書は `fonts/IPA_Font_License_Agreement_v1.0.txt` を参照してください。
+
+## お問い合わせ
+
+不具合のご報告・機能改善のご要望は、X の [@saboten_no_hana](https://x.com/saboten_no_hana) までお寄せください。

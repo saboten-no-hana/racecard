@@ -10,16 +10,16 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f5c3a">
-<!-- OGP（og.png は架空の馬名で作ったサンプル画像。クラブの勝負服は Wikimedia Commons の CC0 画像） -->
+<!-- OGP（og.png は tools/make_og.py で作る。架空の馬名の縦長カード＋説明文。クラブの勝負服は Wikimedia Commons の CC0 画像。作り直したら ?v= の番号を上げる＝X のカードのキャッシュ対策） -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="出資馬出走カードメーカー">
 <meta property="og:title" content="出資馬出走カードメーカー">
 <meta property="og:description" content="今週末に出走する一口出資馬を、勝負服・レース番号・枠色つき馬番入りの1枚の画像に。複数クラブ対応・無料・登録不要。">
 <meta property="og:url" content="https://saboten-no-hana.github.io/racecard/">
-<meta property="og:image" content="https://saboten-no-hana.github.io/racecard/og.png">
+<meta property="og:image" content="https://saboten-no-hana.github.io/racecard/og.png?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="出走予定の出資馬を勝負服つきで並べた画像の例">
+<meta property="og:image:alt" content="ツールの紹介と、出走予定の出資馬を勝負服つきで並べた縦長の画像の例">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -190,6 +190,10 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
 .custom-box .g3c{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .custom-box input[type=range]{width:100%;accent-color:var(--accent)}
 .bgthumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+footer.site-foot{border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+footer.site-foot .wrap{padding-block:16px 28px}
+footer.site-foot p{margin:0}
+footer.site-foot a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
 </style>
 </head>
@@ -324,6 +328,10 @@ details.transfer[open]{padding-bottom:12px;display:grid;gap:12px}
     </div>
   </aside>
 </main>
+
+<footer class="site-foot"><div class="wrap">
+  <p>不具合のご報告・機能改善のご要望は、X の <a href="https://x.com/saboten_no_hana" target="_blank" rel="noopener">@saboten_no_hana</a> までお寄せください。</p>
+</div></footer>
 
 <datalist id="venues">
   <option value="札幌"><option value="函館"><option value="福島"><option value="新潟"><option value="東京">
