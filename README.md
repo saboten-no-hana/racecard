@@ -55,7 +55,7 @@ GitHub のリポジトリで **Actions → 出馬表の取得 → Run workflow**
 - 画面と画像の描画はすべて `index.html`（外部ライブラリなし）。QRコードの生成は `qr.js`、ホーム画面用は `manifest.webmanifest`・`sw.js`（Service Worker。公開ページ＝https の時だけ登録）。ローカルでは `python3 -m http.server` で開けます
 - テスト: `python3 -m unittest discover -s tools -p 'test_*.py'`（JRA にはアクセスせず、偽の出馬表ページで取得処理を確かめます。push のたびに `.github/workflows/test.yml` が実行）
 - フォントや勝負服の画像を差し替えた時は、`sw.js` の `STATIC` の番号を上げます（保存済みのものを使い続けるため）
-- OGP 画像（`og.png`）は `python3 tools/make_og.py` で作り直します（Playwright が必要。画面と同じ描画で縦長のカードを描きます）。作り直したら `index.html` の `og:image` の `?v=` の番号を上げます
+- OGP 画像（`og.png`）は `python3 tools/make_og.py` で作り直します（Playwright が必要。画面と同じ描画で、縦長のカードと作成ページを架空の馬名で描きます）。作り直したら `index.html` の `og:image` の `?v=` の番号を上げます
 - クラブを追加する時は `clubs.js` にエントリを足し、勝負服画像のファイル名を `silks/sources.txt` に書いて push すると、`.github/workflows/fetch-silks.yml` が取得します
 
 ## 素材とライセンス
