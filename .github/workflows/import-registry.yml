@@ -24,8 +24,16 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-jpn >/dev/null
           pip install -q beautifulsoup4==4.12.3 numpy pillow
+      - name: 前回取得した PDF を使い回す（同じ名簿を JRA から何度も取らない）
+        uses: actions/cache@v4
+        with:
+          path: pdf
+          key: resist-pdf-v1
       - name: 名簿の PDF を取得
         run: |
+          if [ -s pdf/list.txt ] && [ "$(ls pdf/registration_*.pdf 2>/dev/null | wc -l)" -ge "$(wc -l < pdf/list.txt)" ]; then
+            echo "前回取得した PDF を使う（JRA へはアクセスしない）"; ls -la pdf; exit 0
+          fi
           UA='Mozilla/5.0 (compatible; racecard/1.0; +https://github.com/saboten-no-hana/racecard)'
           B=https://www.jra.go.jp/datafile/resist/
           mkdir -p pdf

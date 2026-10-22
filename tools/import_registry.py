@@ -109,10 +109,39 @@ def read_row(img, cell):
             names.append(n)
         if len(names) >= 2 or (names and psm == 7 and a == 0.22):   # 2通り読めたか、2つ目まで試して1つ読めていれば十分
             break
-    # 馬主は欄の上半分（下半分は調教師）
+    # 馬主は欄の上半分（下半分は調教師）。長い名義は縮めて印刷され、短い名義は1行で読みにくいことがあるので、
+    # 1通り目で判定できなければ、2倍に拡大したもの・少し広く切り出したもので読み直す（readings の順に試す）
     owner_img = img.crop((ox0 + pad, y0 + pad, ox1 - pad, y0 + int(hgt * 0.52)))
-    owner = re.sub(r'\s', '', unicodedata.normalize('NFKC', ocr(owner_img)))
-    return names, owner
+    readings = [re.sub(r'\s', '', unicodedata.normalize('NFKC', ocr(owner_img)))]
+    return names, readings, (owner_img, img.crop((ox0 + pad, y0 + pad, ox1 - pad, y0 + int(hgt * 0.60))))
+
+
+def more_readings(imgs):
+    small, wide = imgs
+    big = small.resize((small.width * 2, small.height * 2), Image.LANCZOS)
+    out = []
+    for im, psm in ((big, 7), (big, 6), (wide, 6)):
+        t = ocr(im, psm)
+        line = next((x for x in t.splitlines() if x.strip()), '')   # 6 の時は1行目だけ（2行目は調教師）
+        out.append(re.sub(r'\s', '', unicodedata.normalize('NFKC', line)))
+    return out
+
+
+def decide(readings, imgs, clubs):
+    """馬主名の読み取りを順に試し、クラブ／クラブ以外が決まった所で止める。
+    どれかがクラブと読めた時、ほかの読みがクラブ以外でもクラブの方を採る（名義の字が欠けてクラブ以外に見えることはあるが、
+    クラブ以外の名義がクラブの名義にほぼ一致する形に読み違えられることはまずないため）。食い違うクラブ同士なら決めない"""
+    res = [classify(r, clubs) for r in readings]
+    if res[0] is None:
+        extra = more_readings(imgs)
+        readings += extra
+        res += [classify(r, clubs) for r in extra]
+    cl = {c for c in res if c}
+    if len(cl) == 1:
+        return cl.pop(), readings
+    if len(cl) > 1:
+        return None, readings
+    return ('' if '' in res else None), readings
 
 
 def classify(owner, clubs):
@@ -123,26 +152,29 @@ def classify(owner, clubs):
     n = re.sub(r'^\(?[株有合同覆称症]\)?', '', n)   # ㈱㈲ は「覆」「称」などに読み違えやすい
     if n.endswith('氏'):
         return ''     # 個人馬主
-    best, bid = 0.0, None
+    best, bid, common = 0.0, None, 0
     for key, cid in clubs.items():
-        r = SequenceMatcher(None, n, key).ratio()
+        sm = SequenceMatcher(None, n, key)
+        r = sm.ratio()
+        common = max(common, sm.find_longest_match(0, len(n), 0, len(key)).size)
         if len(key) >= 5 and key in n:    # 「ウイン」のような短い名義は部分一致にしない（ウイン〇〇 などを拾わないため）
             r = max(r, 0.95)
         if r > best:
             best, bid = r, cid
     if best >= CLUB_MIN:
         return bid
-    if best < OTHER_MAX and len(n) >= OTHER_MIN_LEN:
-        return ''
+    if len(n) >= OTHER_MIN_LEN and (best < OTHER_MAX or common <= 3):
+        return ''     # どのクラブの名義とも、続けて4字以上同じ所がない（ワイズマン、ノースヒルズ など）
     return None
 
 
 def read_image(img, clubs):
     out = []
     for cell in table_cells(img):
-        names, owner = read_row(img, cell)
+        names, readings, imgs = read_row(img, cell)
         if names:
-            out.append((names, owner, classify(owner, clubs)))
+            c, readings = decide(readings, imgs, clubs)
+            out.append((names, readings, c))
     return out
 
 
@@ -170,8 +202,8 @@ def main():
     args = sys.argv[1:]
     clubs = fr.load_clubs()
     if args and args[0] == '--image':
-        for names, owner, c in read_image(Image.open(args[1]).convert('RGB'), clubs):
-            print(f'{"／".join(names)}\t{c!r}\t{owner}')
+        for names, readings, c in read_image(Image.open(args[1]).convert('RGB'), clubs):
+            print(f'{"／".join(names)}\t{c!r}\t{" | ".join(readings)}')
         return 0
     src = args[0]
     jobs = []
@@ -181,6 +213,7 @@ def main():
         jobs += [(os.path.join(src, pdf), i) for i in range(1, n + 1)]
     print('ページ数:', len(jobs), flush=True)
     names, bad, stats = {}, set(), {'rows': 0, 'club': 0, 'other': 0, 'unsure': 0, 'dup': 0}
+    raw = {}   # 確認用: 馬名の候補 → (判定, 馬主名の読み)。races.json のクラブ馬（名義はクラブ）についてだけログに出す
     per_file = {}
     with ProcessPoolExecutor(os.cpu_count() or 2) as ex:
         results = []
@@ -191,7 +224,9 @@ def main():
     for path, page, rows in results:
         pdf = os.path.basename(path)
         per_file[pdf] = per_file.get(pdf, 0) + len(rows)
-        for cands, owner, c in rows:
+        for cands, readings, c in rows:
+            for n in cands:
+                raw[n] = (c, readings)
             stats['rows'] += 1
             if c is None:
                 stats['unsure'] += 1
@@ -219,6 +254,8 @@ def main():
         wrong = sorted(n for n, c in club.items() if n in names and names[n] != c)
         report(f'精度の確認: races.json のクラブ馬 {len(club)} 頭のうち 正しいクラブ {ok}／名簿で見つからない {len(miss)}／判定が違う {len(wrong)}')
         report(f'見つからない（初出走・名簿の後の登録・読み違い）: {miss}')
+        report(f'見つからないうち、名簿に馬名はあった（馬主名の判定を保留）: {[(n, club[n], raw[n][1]) for n in miss if n in raw]}')
+        report(f'見つからないうち、名簿に馬名もない: {[n for n in miss if n not in raw]}')
         report(f'判定が違う（要確認）: {[(n, club[n], names[n]) for n in wrong]}')
 
     # 名簿の時点（名簿のページの「9月27日（日曜）現在の情報です」）
@@ -236,6 +273,9 @@ def main():
             mo, dy = int(m.group(1)), int(m.group(2))
             asof = f'{today.year - (1 if mo > today.month else 0)}-{mo:02d}-{dy:02d}'
     report(f'名簿の時点: {asof}')
+    from collections import Counter
+    cnt = Counter(v for v in names.values() if v)
+    report('クラブ別の頭数（名簿で判定できたクラブ馬）: ' + '、'.join(f'{k} {v}' for k, v in cnt.most_common()) + f'（計 {sum(cnt.values())}）')
 
     if '--write' in args:
         json.dump({'source': 'JRA 競走馬登録馬名簿（OCR）', 'imported': today.isoformat(), 'asof': asof,
