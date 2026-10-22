@@ -24,12 +24,11 @@ if not kai:
     note('開催のリンクなし。調査を終える'); sys.exit(0)
 html = get(kai[0]); save('02_kaisai', html)
 R = slinks(html); note(f'開催 {kai[0]}: リンク {len(R)}件: ' + ' '.join(R[:30]))
-races = [c for c in R if c.startswith('pw01sde')]
-for i, c in enumerate([races[0], races[-1]] if len(races) > 1 else races):
-    h = get(c, post=not c.startswith('pw01sde') or True); save(f'03_race_{i}', h)
-    heads = re.findall(r'<th[^>]*>(.*?)</th>', h, re.S)[:20]
-    note(f'レース {c}: {len(h)}字 / 見出し: ' + ' | '.join(re.sub(r'<[^>]+>|\s+', '', x) for x in heads))
-others = [c for c in R if not c.startswith('pw01sde') and not c.startswith('pw01srl')]
-if others:
-    h = get(others[0]); save('04_other', h); note(f'その他 {others[0]}: {len(h)}字')
+ses = [c for c in R if c.startswith('pw01ses')]
+if ses:
+    h = get(ses[0]); save('05_ses', h)
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(h, 'html.parser'); tabs = soup.select('table')
+    note(f'全レース {ses[0]}: {len(h)}字 / 表 {len(tabs)}個 / 着順の列 {len(soup.select("td.place"))}件 / 人気の列 {len(soup.select("td.pop"))}件')
+kinds = sorted(set(c[:9] for c in L)); note('結果トップのリンクの種類: ' + ' '.join(kinds))
 note(f'リクエスト数 {f.count}')
