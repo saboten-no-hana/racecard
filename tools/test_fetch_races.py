@@ -98,7 +98,6 @@ class Base(unittest.TestCase):
         d = self.tmp.name
         self.patches = [mock.patch.object(fr, 'DATA', d), mock.patch.object(fr, 'OUT', os.path.join(d, 'races.json')),
                         mock.patch.object(fr, 'CACHE', os.path.join(d, 'cache.json')), mock.patch.object(fr, 'WAIT', 0),
-                        mock.patch.object(fr, 'NAMES', os.path.join(d, 'names.json')),
                         mock.patch.object(fr, 'SEEN', os.path.join(d, 'seen.json')),
                         mock.patch.object(fr.time, 'sleep', lambda s: None)]
         for p in self.patches:
@@ -257,25 +256,6 @@ class TestModes(Base):
         self.assertEqual(len(data['horses']), 12)
         self.assertFalse(any(c.startswith('pw01drl10') for c in jra.requests))
 
-    def test_names_from_registry(self):
-        """木曜（馬番なし）: 登録馬名簿で分かる馬は馬のページを読まない。名簿にない馬だけ馬のページで確かめる"""
-        jra = FakeJRA([{'date': day(2), 'venue_code': '05', 'r': 1, 'umaban': False,
-                        'horses': [('2021000001', 'メイボクウマ', CARROT, ''), ('2021000002', 'コジンウマ', '山田 太郎氏', ''),
-                                   ('2021000003', 'シンバウマ', CARROT, '')]}])
-        today = datetime.now(JST).date().isoformat()
-        json.dump({'imported': today, 'names': {'メイボクウマ': 'carrot', 'コジンウマ': ''}}, open(fr.NAMES, 'w'))
-        code, data, cache = self.run_main(jra, [])
-        self.assertEqual(code, 0)
-        self.assertEqual(sorted(h['name'] for h in data['horses']), ['シンバウマ', 'メイボクウマ'])
-        self.assertEqual(cache, {'2021000001': 'carrot', '2021000002': '', '2021000003': 'carrot'})
-        self.assertEqual([c for c in jra.requests if c.startswith('pw01dud00')], ['pw01dud002021000003/AA'])   # 名簿にない馬だけ
-
-    def test_names_too_old(self):
-        """名簿の取り込みから日数が経ちすぎたら使わない"""
-        json.dump({'imported': '2026-01-01', 'names': {'ウマ': 'carrot'}}, open(fr.NAMES, 'w'))
-        self.assertEqual(fr.load_names(datetime(2026, 6, 30, tzinfo=JST)), {'ウマ': 'carrot'})
-        self.assertEqual(fr.load_names(datetime(2026, 7, 1, tzinfo=JST)), {})
-
     def test_stale_club_horse_rechecked_on_thursday(self):
         """木曜: 90日以上中央に載っていなかったクラブ馬は馬のページで名義を確かめる（売却→地方→中央に戻った馬を外す）"""
         jra = FakeJRA([{'date': day(2), 'venue_code': '05', 'r': 1, 'umaban': False,
@@ -291,15 +271,6 @@ class TestModes(Base):
         seen = json.load(open(fr.SEEN))
         self.assertEqual(seen, {'2021000002': day(2), '2021000003': day(2), '2021000004': day(2)})   # クラブ馬だけ・今回の日付
         self.assertIn('モドッタウマ', self.log)   # 名義が変わったことをログに出す
-
-    def test_names_entry_uses_registry_date(self):
-        """名簿で分かったクラブ馬は、名簿の時点から90日以上たっていれば馬のページで確かめる"""
-        jra = FakeJRA([{'date': day(2), 'venue_code': '05', 'r': 1, 'umaban': False,
-                        'horses': [('2021000001', 'メイボクウマ', '山田 太郎氏', '')]}])
-        json.dump({'imported': datetime.now(JST).date().isoformat(), 'asof': day(-95), 'names': {'メイボクウマ': 'carrot'}}, open(fr.NAMES, 'w'))
-        code, data, cache = self.run_main(jra, [])
-        self.assertEqual(data['horses'], [])
-        self.assertEqual(cache, {'2021000001': ''})
 
     def test_summary(self):
         """Actions の要約にクラブ別の頭数が出る"""
