@@ -6,6 +6,9 @@ on:
     paths: ['tools/probe_results.py', '.github/workflows/probe-results.yml', 'probe/rerun']
 permissions:
   contents: write
+concurrency:
+  group: probe-results
+  cancel-in-progress: false
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -25,4 +28,5 @@ jobs:
           git add probe/*.html
           git diff --cached --quiet && exit 0
           git commit -m "調査: レース結果ページを保存 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          git pull --rebase -q origin probe-results || true
           git push
