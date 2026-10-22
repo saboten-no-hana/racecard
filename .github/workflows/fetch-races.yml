@@ -14,6 +14,12 @@ on:
     - cron: '45 0 * * *'   # 毎日 09:45 JST 起動 → 10:05 から翌日の馬番を確認（〜12:00）
                            #   翌日に開催がなく新しい開催日もなければトップ1回で終了
   workflow_dispatch:
+    inputs:
+      mode:
+        description: '取得の仕方（once=1回だけ取得／confirm=出走確定を見張る／umaban=翌日の馬番を見張る）'
+        type: choice
+        options: [once, confirm, umaban]
+        default: once
 permissions:
   contents: write
 concurrency:
@@ -32,12 +38,12 @@ jobs:
       - run: pip install beautifulsoup4==4.12.3
       - name: 出馬表を取得
         run: |
-          case "${{ github.event.schedule }}" in
-            '25 6 * * *')
+          case "${{ github.event.schedule }}${{ inputs.mode }}" in
+            '25 6 * * *'|confirm)
               if [ "$(TZ=Asia/Tokyo date +%u)" = 4 ]; then W=18:30; else W=16:35; fi
               ARGS="--mode confirm --start 15:45 --until 18:30 --watch-until $W" ;;
-            '45 0 * * *') ARGS='--mode umaban --start 10:05 --until 12:00' ;;
-            *) ARGS='' ;;   # 安全網・手動実行は1回だけ
+            '45 0 * * *'|umaban) ARGS='--mode umaban --start 10:05 --until 12:00' ;;
+            *) ARGS='' ;;   # 安全網・手動実行（once）は1回だけ
           esac
           python3 tools/fetch_races.py $ARGS
       - name: Commit
