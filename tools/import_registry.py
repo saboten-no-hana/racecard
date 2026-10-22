@@ -156,6 +156,16 @@ def read_page(job):
         return pdf, page, read_image(Image.open(os.path.join(d, 'p.png')).convert('RGB'), clubs)
 
 
+def report(line):
+    """結果の行を、ログに加えて Actions の注記（公開 API でも読める）と実行結果のページの要約にも出す"""
+    print(line, flush=True)
+    if os.environ.get('GITHUB_ACTIONS'):
+        print('::notice::' + line.replace('%', '%25').replace('\n', '%0A'), flush=True)
+    if os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as f:
+            f.write(line + '\n\n')
+
+
 def main():
     args = sys.argv[1:]
     clubs = fr.load_clubs()
@@ -196,8 +206,8 @@ def main():
                     bad.add(name)
                     continue
                 names[name] = c
-    print('ファイル別の行数:', per_file)
-    print('集計:', stats, '／ 保存する馬名:', len(names), '（うちクラブ', sum(1 for v in names.values() if v), '）')
+    report(f'ファイル別の行数: {per_file}')
+    report(f"集計: {stats} ／ 保存する馬名: {len(names)}（うちクラブ {sum(1 for v in names.values() if v)}）")
 
     if '--check' in args:
         races = json.load(open(args[args.index('--check') + 1], encoding='utf-8'))
@@ -207,9 +217,9 @@ def main():
         ok = sum(1 for n, c in club.items() if names.get(n) == c)
         miss = sorted(n for n in club if n not in names)
         wrong = sorted(n for n, c in club.items() if n in names and names[n] != c)
-        print(f'精度の確認: races.json のクラブ馬 {len(club)} 頭のうち 正しいクラブ {ok}／名簿で見つからない {len(miss)}／判定が違う {len(wrong)}')
-        print('  見つからない（初出走・名簿の後の登録・読み違い）:', miss)
-        print('  判定が違う（要確認）:', [(n, club[n], names[n]) for n in wrong])
+        report(f'精度の確認: races.json のクラブ馬 {len(club)} 頭のうち 正しいクラブ {ok}／名簿で見つからない {len(miss)}／判定が違う {len(wrong)}')
+        report(f'見つからない（初出走・名簿の後の登録・読み違い）: {miss}')
+        report(f'判定が違う（要確認）: {[(n, club[n], names[n]) for n in wrong]}')
 
     # 名簿の時点（名簿のページの「9月27日（日曜）現在の情報です」）
     today = datetime.now(fr.JST).date()
@@ -225,7 +235,7 @@ def main():
         if m:
             mo, dy = int(m.group(1)), int(m.group(2))
             asof = f'{today.year - (1 if mo > today.month else 0)}-{mo:02d}-{dy:02d}'
-    print('名簿の時点:', asof)
+    report(f'名簿の時点: {asof}')
 
     if '--write' in args:
         json.dump({'source': 'JRA 競走馬登録馬名簿（OCR）', 'imported': today.isoformat(), 'asof': asof,
