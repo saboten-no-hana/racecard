@@ -40,6 +40,8 @@ OUT = os.path.join(DATA, 'races.json')
 CACHE = os.path.join(DATA, 'cache.json')
 NAMES = os.path.join(DATA, 'names.json')   # 登録馬名簿（tools/import_registry.py）から作った 馬名 → クラブID（クラブ以外は ''）
 NAMES_DAYS = 180                           # 名簿を取り込んでからこの日数を過ぎたら使わない（記録は毎週の取得で馬IDごとに貯まるため）
+SEEN = os.path.join(DATA, 'seen.json')     # クラブ馬が最後に中央の出馬表に載った日（馬ID → YYYY-MM-DD）
+STALE_DAYS = 90                            # これ以上空いたクラブ馬は、馬番の出る前（木曜）にも馬のページで名義を確かめる
 BASE = 'https://www.jra.go.jp'
 UA = 'Mozilla/5.0 (compatible; racecard/1.0; +https://github.com/saboten-no-hana/racecard)'
 JST = timezone(timedelta(hours=9))
@@ -68,6 +70,16 @@ def load_names(now=None):
     except ValueError:
         return {}
     return d.get('names', {}) if age <= NAMES_DAYS else {}
+
+def names_asof():
+    """登録馬名簿の時点（名簿で分かったクラブ馬は、この日に中央にいたとみなす）"""
+    if not os.path.exists(NAMES):
+        return None
+    d = json.load(open(NAMES, encoding='utf-8'))
+    return d.get('asof') or d.get('imported')
+
+def days_between(a, b):
+    return (datetime.strptime(b, '%Y-%m-%d') - datetime.strptime(a, '%Y-%m-%d')).days
 
 def load_club_list():
     """clubs.js から [{id, name}]（要約の表示用）"""
@@ -427,8 +439,10 @@ def attempt(f, clubs, mode, ctx):
         club_of[h['horseId']] = clubs.get(norm_owner(owner), '')
 
     result = []
-    stats = {'detail': 0, 'horse': 0, 'names': 0}
+    stats = {'detail': 0, 'horse': 0, 'names': 0, 'stale': 0}
     names = load_names()
+    asof = names_asof()
+    seen = json.load(open(SEEN, encoding='utf-8')) if os.path.exists(SEEN) else {}
     complete = True
     for mt in meetings:
         race_pages, races = read_meeting(f, mt)
@@ -457,6 +471,8 @@ def attempt(f, clubs, mode, ctx):
                 # 登録馬名簿で分かる馬は、馬のページを読まずに記録する
                 if h['name'] in names:
                     club_of[h['horseId']] = names[h['name']]
+                    if names[h['name']] and asof and h['horseId'] not in seen:
+                        seen[h['horseId']] = asof    # 名簿の時点で中央にいた
                     stats['names'] += 1
                     continue
                 if not h['horseCname']:
@@ -465,10 +481,27 @@ def attempt(f, clubs, mode, ctx):
                 stats['horse'] += 1
                 if owner is not None:
                     remember(h, owner)
+            # 馬番が出る前（木曜）のレースで、しばらく中央の出馬表に載っていなかったクラブ馬は、馬のページで名義を確かめる
+            # （売却されて地方へ移り、中央に再登録されて戻ってきた馬をクラブ馬として載せないため。最速でも2か月ほどかかる）
+            if rdate > today and not any(h['umaban'] for h in race['horses']):
+                for h in race['horses']:
+                    last = seen.get(h['horseId'])
+                    if not club_of.get(h['horseId']) or not last or days_between(last, rdate) < STALE_DAYS or not h['horseCname']:
+                        continue
+                    owner = horse_owner(f.get(h['horseCname'], path='/JRADB/accessU.html'))
+                    stats['stale'] += 1
+                    if owner is not None:
+                        was = club_of[h['horseId']]
+                        remember(h, owner)
+                        if club_of[h['horseId']] != was:
+                            print(f"    名義が変わった: {h['name']}（{was} → {club_of[h['horseId']] or 'クラブ以外'}）", flush=True)
+                            ctx.setdefault('changed', []).append(f"{h['name']}（{was} → {club_of[h['horseId']] or 'クラブ以外'}）")
             for h in race['horses']:
                 club = club_of.get(h['horseId'], '')
                 if not club:
                     continue
+                if seen.get(h['horseId'], '') < rdate:
+                    seen[h['horseId']] = rdate
                 result.append({
                     'key': f"{mt['date']}|{mt['venue']}|{rno}|{h['horseId']}", 'horseId': h['horseId'], 'name': h['name'],
                     'clubId': club,
@@ -477,7 +510,7 @@ def attempt(f, clubs, mode, ctx):
                     'surface': race.get('surface', ''), 'dist': race.get('dist', ''),
                     'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'weight': h['weight'], 'status': h['status'],
                 })
-        print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']} / 名簿 {stats['names']}", flush=True)
+        print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']} / 名簿 {stats['names']} / 久々の確認 {stats['stale']}", flush=True)
         if mt in check:
             ok = confirm_complete(mt['cname'], race_pages, races, ctx['prev']) if mode == 'confirm' else umaban_complete(races)
             if not ok:
@@ -513,6 +546,7 @@ def attempt(f, clubs, mode, ctx):
                    'miss': miss, 'changed': changed, 'umaban': sum(1 for x in result if x['umaban']),
                    'scratched': [f"{x['name']}（{x['status']}）" for x in result if x['status']]}
     json.dump(cache, open(CACHE, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'), sort_keys=True)
+    json.dump({k: v for k, v in seen.items() if club_of.get(k)}, open(SEEN, 'w', encoding='utf-8'), separators=(',', ':'), sort_keys=True)
     ctx['ok'] = True
     if not complete:
         print('まだ揃っていない開催がある（JRAのサイトへの反映途中）')

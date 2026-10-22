@@ -7,12 +7,13 @@ name: 出馬表の取得
 # 時刻はUTC（日本時間 = UTC+9）。
 on:
   schedule:
-    - cron: '45 5 * * *'   # 毎日 14:45 JST 起動 → 15:45 から新しい開催日の出走確定を確認
-                           #   （定期実行は30〜50分遅れることがある＝10/21・10/22 実績。1時間前に起動して待つ）
+    - cron: '45 4 * * *'   # 毎日 13:45 JST 起動 → 15:45 から新しい開催日の出走確定を確認
+                           #   （定期実行は30〜50分遅れることがある＝10/21・10/22 実績。余裕をみて2時間前に起動して待つ。
+                           #     ジョブの上限は6時間なので、木曜 18:30 まで待つにはこれより早くできない）
                            #   （16時前の15:50ごろに載ることもあるため、発表の16時より早めに見る）
                            #   木曜は 18:30 まで待つ。ほかの曜日は 16:35 までに何も載らなければ終了（トップ11回）
     - cron: '5 10 * * 4'   # 木 19:05 JST 安全網（1回だけ取得。有馬記念の週の枠順抽選 18:30ごろ もここで拾う）
-    - cron: '45 0 * * *'   # 毎日 09:45 JST 起動 → 10:05 から翌日の馬番を確認（〜12:00）
+    - cron: '45 23 * * *'  # 毎日 08:45 JST 起動（UTC では前日 23:45）→ 10:05 から翌日の馬番を確認（〜12:00）。遅れに備えて早めに起動
                            #   翌日に開催がなく新しい開催日もなければトップ1回で終了
   workflow_dispatch:
     inputs:
@@ -29,7 +30,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 300   # 木曜は 14:45 起動〜18:30 まで待ち、そのあと全体の取得（初期は40分ほど）が続くことがある
+    timeout-minutes: 345   # 木曜は 13:45 起動〜18:30 まで待ち（285分）、そのあと全体の取得が続くことがある（GitHub の上限は360分）
     # 失敗（GitHub からメールが届く）になるのは: 出馬表トップの形式が読めない／木曜に週末の出馬表を取れなかった（年末年始を除く）
     steps:
       - uses: actions/checkout@v4
@@ -40,10 +41,10 @@ jobs:
       - name: 出馬表を取得
         run: |
           case "${{ github.event.schedule }}${{ inputs.mode }}" in
-            '45 5 * * *'|confirm)
+            '45 4 * * *'|confirm)
               if [ "$(TZ=Asia/Tokyo date +%u)" = 4 ]; then W=18:30; else W=16:35; fi
               ARGS="--mode confirm --start 15:45 --until 18:30 --watch-until $W" ;;
-            '45 0 * * *'|umaban) ARGS='--mode umaban --start 10:05 --until 12:00' ;;
+            '45 23 * * *'|umaban) ARGS='--mode umaban --start 10:05 --until 12:00' ;;
             *) ARGS='' ;;   # 安全網・手動実行（once）は1回だけ
           esac
           python3 tools/fetch_races.py $ARGS
@@ -52,7 +53,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add data/races.json data/cache.json
+          git add data/races.json data/cache.json data/seen.json
           if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
           git commit -m "出馬表を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
           git pull --rebase -q origin main

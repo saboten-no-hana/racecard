@@ -193,8 +193,24 @@ def main():
         print('  見つからない（初出走・名簿の後の登録・読み違い）:', miss)
         print('  判定が違う（要確認）:', [(n, club[n], names[n]) for n in wrong])
 
+    # 名簿の時点（名簿のページの「9月27日（日曜）現在の情報です」）
+    today = datetime.now(fr.JST).date()
+    asof = today.isoformat()
+    idx = os.path.join(src, 'index.html')
+    if os.path.exists(idx):
+        raw = open(idx, 'rb').read()
+        try:
+            page = raw.decode('utf-8')
+        except UnicodeDecodeError:
+            page = raw.decode('cp932', errors='replace')
+        m = re.search(r'(\d{1,2})月(\d{1,2})日（.{1,3}）現在', page)
+        if m:
+            mo, dy = int(m.group(1)), int(m.group(2))
+            asof = f'{today.year - (1 if mo > today.month else 0)}-{mo:02d}-{dy:02d}'
+    print('名簿の時点:', asof)
+
     if '--write' in args:
-        json.dump({'source': 'JRA 競走馬登録馬名簿（OCR）', 'imported': datetime.now(fr.JST).date().isoformat(),
+        json.dump({'source': 'JRA 競走馬登録馬名簿（OCR）', 'imported': today.isoformat(), 'asof': asof,
                    'names': dict(sorted(names.items()))},
                   open(NAMES, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
         print('data/names.json を書き出し:', len(names))
