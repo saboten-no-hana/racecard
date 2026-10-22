@@ -37,6 +37,17 @@ class TestClassify(unittest.TestCase):
                   'レッドレーシンダー']:
             self.check(o, None)
 
+    def test_decide_needs_all_readings_for_not_club(self):
+        """読み直しのどれかが判定できなければ、クラブ以外とは決めない（崩れたクラブの名義をクラブ以外にしない）"""
+        from unittest import mock
+        garbled = ['レッドレーシング=', '愉ブノルレマンブイーザサフブ', '全ブクレマプンブイーサフブ']   # 10/22 の実例（ノルマンディー）
+        with mock.patch.object(ir, 'more_readings', lambda imgs: garbled):
+            self.assertIsNone(ir.decide(['レッドレーシングー'], None, self.clubs)[0])
+        with mock.patch.object(ir, 'more_readings', lambda imgs: ['手嶋康雄氏'] * 3):
+            self.assertEqual(ir.decide(['株ノースヒルズ'], None, self.clubs)[0], '')
+        with mock.patch.object(ir, 'more_readings', lambda imgs: ['覆キャロットファーム', '株ノースヒルズ', '']):
+            self.assertEqual(ir.decide(['症'], None, self.clubs)[0], 'carrot')
+
     def test_kana_name(self):
         self.assertEqual(ir.clean_kana('ア イ ア ム ス テ キ\n'), 'アイアムステキ')
         self.assertEqual(ir.clean_kana('アイアムアヒ一ロ一'), 'アイアムアヒーロー')

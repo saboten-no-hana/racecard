@@ -141,7 +141,9 @@ def decide(readings, imgs, clubs):
         return cl.pop(), readings
     if len(cl) > 1:
         return None, readings
-    return ('' if '' in res else None), readings
+    # クラブ以外と決めるのは、試した読みがすべてクラブ以外だった時だけ。1つでも判定できない読みがあれば決めない
+    # （4回目の精度確認で、2行に分けて印刷された「ノルマンディーサラブレッドレーシング」が崩れて読め、クラブ以外になった）
+    return ('' if res and all(c == '' for c in res) else None), readings
 
 
 DAKU = str.maketrans('ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポヴァィゥェォャュョッヮ',
