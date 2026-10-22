@@ -23,6 +23,7 @@ class FakeJRA:
     def __init__(self, races):
         self.races = races
         self.fail = 0          # この回数だけ通信エラーにする
+        self.past = []         # トップに載せる終わった週の開催（種別 10 のリンク）の (日付, 場コード)
         self.requests = []
 
     def meetings(self):
@@ -63,7 +64,8 @@ class FakeJRA:
         ms = self.meetings()
         # cname: pw01drl00{場2}{年4}{回2}{日2}{年月日8} / pw01des01{同じ} / pw01dde01{場2}{年4}{回2}{日2}{R2}{年月日8}
         if cname == 'pw01dli00/F3':
-            return ''.join(f'<a href="x?CNAME=pw01drl00{vc}20260407{self.ymd8(d)}/AB"></a>' for d, vc in ms)
+            return ''.join(f'<a href="x?CNAME=pw01drl10{vc}20260406{self.ymd8(d)}/16"></a>' for d, vc in self.past) + \
+                ''.join(f'<a href="x?CNAME=pw01drl00{vc}20260407{self.ymd8(d)}/AB"></a>' for d, vc in ms)
         for (d, vc), races in ms.items():
             if cname.startswith(f'pw01drl00{vc}20260407{self.ymd8(d)}'):
                 return ''.join(f'<a href="x?CNAME=pw01dde01{vc}20260407{r["r"]:02d}{self.ymd8(d)}/CD"></a>' for r in races) + \
@@ -231,6 +233,27 @@ class TestModes(Base):
         jra.get = broken_top
         code, _, _ = self.run_main(jra, [])
         self.assertEqual(code, 1)
+
+    def test_past_week_links_only(self):
+        """トップに終わった週の開催（pw01drl10…）だけが載っている平日 → 形式エラーにせず、出馬表は読まない（10/21 の失敗）"""
+        jra = FakeJRA([])
+        jra.past = [(day(-4), '05'), (day(-4), '08')]
+        code, _, _ = self.run_main(jra, [])
+        self.assertEqual(code, 0)
+        self.assertEqual(jra.requests, ['pw01dli00/F3'])
+        with mock.patch.object(fr.Fetcher, '_get', lambda s, c, p, path: jra.get(s, c, p, path)), redirect_stdout(io.StringIO()):
+            self.assertEqual(fr.attempt(fr.Fetcher(), [], 'confirm', {'known': set()}), 'waiting')   # 木曜の見張りは続ける
+
+    def test_past_week_links_with_new_day(self):
+        """終わった週の開催と新しい開催日が並んで載っている → 新しい開催日だけ読んで取得する"""
+        jra = FakeJRA([{'date': day(2), 'venue_code': '05', 'r': r, 'umaban': False,
+                        'horses': [(f'20210001{r:02d}', f'ウマ{r}', CARROT, '')]} for r in range(1, 13)])
+        jra.past = [(day(-5), '05')]
+        code, data, _ = self.run_main(jra, ['--mode', 'confirm', '--start', '00:00', '--until', '23:59', '--interval', '0'],
+                                      races={'days': [{'date': day(-5), 'venues': ['東京']}], 'horses': []})
+        self.assertEqual(code, 0)
+        self.assertEqual(len(data['horses']), 12)
+        self.assertFalse(any(c.startswith('pw01drl10') for c in jra.requests))
 
     def test_summary(self):
         """Actions の要約にクラブ別の頭数が出る"""

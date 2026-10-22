@@ -354,13 +354,24 @@ def attempt(f, clubs, mode, ctx):
     if not lists:
         print('出馬表の開催一覧が見つかりませんでした（開催がない週、またはページの形式が変わった可能性）')
         return 'waiting' if mode == 'confirm' else 'skip'
-    meetings = []
+    # 開催へのリンクは pw01drl{種別2}{場2}{年4}{回2}{日2}{年月日8}。種別 00 が出馬表を読める開催。
+    # 平日はレースの終わった前の週の開催が種別 10 で載っていることがある（10/21 水曜に確認）ので、それは読まずに飛ばす
+    meetings, others = [], []
     for c in lists:
-        m = re.match(r'pw01drl00(\d{2})\d{4}\d{2}\d{2}(\d{8})', c)
-        if m:
-            d = m.group(2)
-            meetings.append({'cname': c, 'venue': VENUES.get(m.group(1), m.group(1)), 'date': f'{d[:4]}-{d[4:6]}-{d[6:]}'})
+        m = re.match(r'pw01drl(\d{2})(\d{2})\d{4}\d{2}\d{2}(\d{8})', c)
+        if not m:
+            continue
+        if m.group(1) != '00':
+            others.append(c)
+            continue
+        d = m.group(3)
+        meetings.append({'cname': c, 'venue': VENUES.get(m.group(2), m.group(2)), 'date': f'{d[:4]}-{d[4:6]}-{d[6:]}'})
+    if others:
+        print('出馬表を読まない開催のリンク（終わった週など）:', others[:3], flush=True)
     if not meetings:
+        if others:
+            print('出馬表を読める開催はまだ載っていない')
+            return 'waiting' if mode == 'confirm' else 'skip'
         print('::error::出馬表トップに開催へのリンクはあるが、形式が読めなかった（ページ構造の変更）:', lists[:3], flush=True)
         ctx['format_error'] = True
         return 'skip'
