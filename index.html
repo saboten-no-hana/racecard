@@ -69,6 +69,8 @@ dialog.guide kbd{font:inherit;font-weight:700;border:1px solid var(--line);borde
 dialog.guide .note2{font-size:13px;color:var(--muted);margin:0 0 12px}
 dialog.guide .skip{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);margin-bottom:14px}
 dialog.guide .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+dialog.guide #tc-go{border-color:var(--danger)}
+.t-clear{display:flex;justify-content:flex-end;margin-top:8px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px}
 .panel h2,.editor-head h2{font-size:13px;letter-spacing:.12em;font-weight:700;color:var(--muted);margin:0}
@@ -223,6 +225,13 @@ footer.site-foot a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
       <details class="transfer" id="transfer">
         <summary>★を他の端末に引き継ぐ（<span id="t-count">0</span>頭）</summary>
         <div class="mylist" id="t-list"></div>
+        <div class="t-clear"><button type="button" class="danger" id="t-clear" hidden>★をすべて外す</button></div>
+        <dialog class="guide" id="t-clear-dlg" aria-labelledby="tc-h">
+          <h3 id="tc-h">★をすべて外しますか？</h3>
+          <p id="tc-msg"></p>
+          <p class="note2">外した★は元に戻せません。念のため、先に「コードをコピー」で今の★を控えておくと、あとで「読み込む」で戻せます。</p>
+          <div class="acts"><button type="button" class="ghost" id="tc-cancel">やめる</button><button type="button" class="danger" id="tc-go">すべて外す</button></div>
+        </dialog>
         <label class="fld"><span>この端末の引き継ぎコード</span>
           <div class="row-inline"><input type="text" id="t-code" readonly><button type="button" id="t-copy">コードをコピー</button><button type="button" id="t-link">リンクをコピー</button><button type="button" id="t-qr" aria-expanded="false">QRコード</button></div></label>
         <div class="tqr" id="t-qrbox" hidden><canvas id="t-qrcv" role="img" aria-label="引き継ぎリンクのQRコード"></canvas><p class="hint">もう一方の端末（スマホなど）のカメラで読み取ってリンクを開くと、この★を読み込めます。</p></div>
@@ -1232,7 +1241,7 @@ const myCode=()=>encodeMine(state.myHorses,state.myPending,state.myNames);
 const myTotal=()=>state.myHorses.length+state.myPending.length;
 function shareLink(){ return location.origin+location.pathname+'#star='+encodeURIComponent(myCode()); }
 function renderTransfer(){
-  $('#t-count').textContent=myTotal();
+  $('#t-count').textContent=myTotal(); $('#t-clear').hidden=!myTotal();
   if(!$('#t-qrbox').hidden) showQR();
   $('#t-code').value=myTotal()?myCode():'';
   $('#t-list').innerHTML=(state.myHorses.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')
@@ -1271,6 +1280,11 @@ $('#t-load').addEventListener('click',()=>{ const d=decodeMine($('#t-in').value)
 $('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data-id],button[data-name]'); if(!b) return;
   if(b.dataset.id) state.myHorses=state.myHorses.filter(i=>i!==b.dataset.id); else state.myPending=state.myPending.filter(n=>n!==b.dataset.name);
   save(); renderTransfer(); renderPicker(); });
+/* ★をすべて外す（10/22、βテストの要望。出資馬が100頭を超えると1頭ずつ探して外すのが大変なため）。確認のダイアログを挟む */
+$('#t-clear').addEventListener('click',()=>{ $('#tc-msg').textContent=`★を付けた${myTotal()}頭（出走待ちを含む）をすべて外します。`; $('#t-clear-dlg').showModal(); });
+$('#tc-cancel').addEventListener('click',()=>$('#t-clear-dlg').close());
+$('#tc-go').addEventListener('click',()=>{ const n=myTotal(); state.myHorses=[]; state.myPending=[]; state.myNames={};
+  save(); renderTransfer(); renderPicker(); $('#t-clear-dlg').close(); $('#t-status').textContent=`★を${n}頭外しました。`; });
 function checkHashImport(){
   if(!location.hash.startsWith('#star=')) return;
   const d=decodeMine(location.hash); history.replaceState(null,'',location.pathname+location.search);
