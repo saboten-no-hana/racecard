@@ -97,6 +97,9 @@ button,.btn{font:inherit;font-size:14px;font-weight:700;border-radius:8px;paddin
 button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 button.danger{color:var(--danger);background:transparent}
 button.ghost{background:transparent}
+#post{background:#000;border-color:#000;color:#fff}
+#post:hover{background:#222;filter:none}
+@media (prefers-color-scheme:dark){#post{border-color:#555}}
 button:hover,.btn:hover{filter:brightness(1.05)}
 
 .editor-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
@@ -257,7 +260,7 @@ footer.site-foot a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
     <div class="out-actions">
       <button class="primary" id="dl" type="button">画像を保存</button>
       <button id="copy" type="button">画像をコピー</button>
-      <button id="post" type="button">Xに投稿</button>
+      <button id="post" type="button">X(Twitter)に投稿</button>
       <span class="status" id="status" role="status"></span>
     </div>
     <p class="hint" id="post-hint"></p>
@@ -322,7 +325,7 @@ footer.site-foot a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
         <label><input type="checkbox" id="s-count">頭数を載せる</label>
         <label><input type="checkbox" id="s-aw">性齢・斤量を載せる</label>
       </div>
-      <label class="fld"><span>投稿文（「Xに投稿」の投稿画面に入る本文。説明やハッシュタグ等）</span><textarea id="s-post" rows="4"></textarea></label>
+      <label class="fld"><span>投稿文（「X(Twitter)に投稿」の投稿画面に入る本文。説明やハッシュタグ等）</span><textarea id="s-post" rows="4"></textarea></label>
       <div class="post-tools"><button type="button" id="s-list">出走一覧を入れる</button><span id="s-len" class="hint" aria-live="polite"></span></div>
       <p class="hint">書き換えるまではタイトルと同じ文が入り、タイトルに合わせて変わります。空にするとタイトルに戻ります。「出走一覧を入れる」は画像と同じ並び順で「東京11R 馬名」の行を入れます（入れ直すと前の一覧は置き換わります）。</p>
     </div>
@@ -1045,8 +1048,8 @@ const isMobile=()=>matchMedia('(pointer: coarse)').matches;
 const isMac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
 const PASTE_KEY=isMac?'<kbd>⌘</kbd>＋<kbd>V</kbd>':'<kbd>Ctrl</kbd>＋<kbd>V</kbd>';
 $('#post-hint').innerHTML = isMobile()
-  ? '「Xに投稿」を押すと共有メニューが開きます。<b>X</b> を選ぶと、画像と本文が入った投稿画面になります。'
-  : '「Xに投稿」を押すと画像をコピーしてXの投稿画面を開きます。本文欄をクリックして '+PASTE_KEY+' で画像を貼り付けてください。';
+  ? '「X(Twitter)に投稿」を押すと共有メニューが開きます。<b>X</b> を選ぶと、画像と本文が入った投稿画面になります。'
+  : '「X(Twitter)に投稿」を押すと画像をコピーしてXの投稿画面を開きます。本文欄をクリックして '+PASTE_KEY+' で画像を貼り付けてください。';
 function canShareFile(){ if(!isMobile()||!navigator.canShare||!pngBlob) return false; try{ return navigator.canShare({files:[new File([pngBlob],pngName(),{type:'image/png'})]}); }catch(e){ return false; } }
 async function doShare(){ const st=$('#status');
   try{ await navigator.share({files:[new File([pngBlob],pngName(),{type:'image/png'})],text:postText()}); st.textContent=''; }
