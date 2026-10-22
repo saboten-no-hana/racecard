@@ -9,6 +9,10 @@ on:
         description: 'data/names.json に保存して push する'
         type: boolean
         default: false
+      export:
+        description: '確認用に全行を Excel に書き出す（成果物として1日だけ置く）'
+        type: boolean
+        default: false
 permissions:
   contents: write
 jobs:
@@ -23,7 +27,7 @@ jobs:
       - run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq poppler-utils tesseract-ocr tesseract-ocr-jpn >/dev/null
-          pip install -q beautifulsoup4==4.12.3 numpy pillow
+          pip install -q beautifulsoup4==4.12.3 numpy pillow openpyxl
       - name: 前回取得した PDF を使い回す（同じ名簿を JRA から何度も取らない）
         uses: actions/cache@v4
         with:
@@ -45,7 +49,15 @@ jobs:
         run: |
           ARGS="--check data/races.json"
           if [ "${{ inputs.write }}" = true ]; then ARGS="$ARGS --write"; fi
+          if [ "${{ inputs.export }}" = true ]; then ARGS="$ARGS --export registry_check.xlsx"; fi
           python3 tools/import_registry.py pdf $ARGS
+      - name: 確認用の Excel を成果物に置く（1日で消える）
+        if: ${{ inputs.export }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: registry_check
+          path: registry_check.xlsx
+          retention-days: 1
       - name: Commit
         if: ${{ inputs.write }}
         run: |

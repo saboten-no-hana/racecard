@@ -196,12 +196,24 @@ def classify(owner, clubs):
 
 def read_image(img, clubs):
     out = []
-    for cell in table_cells(img):
+    for i, cell in enumerate(table_cells(img), 1):
         names, readings, imgs = read_row(img, cell)
         if names:
             c, readings = decide(readings, imgs, clubs)
-            out.append((names, readings, c))
+            out.append((names, readings, c, i))
     return out
+
+
+CORP = re.compile(r'レーシング|ファーム|クラブ|ホース|牧場|株|有|合同|会社|ステーブル|サラブレッド|Racing|Farm|Club', re.I)
+
+
+def plan_b(readings, c):
+    """B案（10/22 検討）: クラブ以外と決めるのは、読みがすべて「〜氏」で法人らしい語を含まない個人馬主だけ。法人のクラブ以外は保留"""
+    if c:
+        return c
+    if c == '' and readings and all(r.endswith('氏') and not CORP.search(r) for r in readings):
+        return ''
+    return None
 
 
 def read_page(job):
@@ -228,8 +240,8 @@ def main():
     args = sys.argv[1:]
     clubs = fr.load_clubs()
     if args and args[0] == '--image':
-        for names, readings, c in read_image(Image.open(args[1]).convert('RGB'), clubs):
-            print(f'{"／".join(names)}\t{c!r}\t{" | ".join(readings)}')
+        for names, readings, c, i in read_image(Image.open(args[1]).convert('RGB'), clubs):
+            print(f'{i}\t{"／".join(names)}\t{c!r}\tB={plan_b(readings, c)!r}\t{" | ".join(readings)}')
         return 0
     src = args[0]
     jobs = []
@@ -250,7 +262,7 @@ def main():
     for path, page, rows in results:
         pdf = os.path.basename(path)
         per_file[pdf] = per_file.get(pdf, 0) + len(rows)
-        for cands, readings, c in rows:
+        for cands, readings, c, _ in rows:
             for n in cands:
                 raw[n] = (c, readings)
             stats['rows'] += 1
@@ -303,12 +315,61 @@ def main():
     cnt = Counter(v for v in names.values() if v)
     report('クラブ別の頭数（名簿で判定できたクラブ馬）: ' + '、'.join(f'{k} {v}' for k, v in cnt.most_common()) + f'（計 {sum(cnt.values())}）')
 
+    if '--export' in args:
+        export(args[args.index('--export') + 1], results, clubs, args, names)
+
     if '--write' in args:
         json.dump({'source': 'JRA 競走馬登録馬名簿（OCR）', 'imported': today.isoformat(), 'asof': asof,
                    'names': dict(sorted(names.items()))},
                   open(NAMES, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
         print('data/names.json を書き出し:', len(names))
     return 0
+
+
+def export(path, results, clubs, args, names):
+    """確認用に全行を Excel に書き出す（Actions の成果物として1日だけ置く。リポジトリには入れない）"""
+    from collections import Counter
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    label = {c['id']: c['name'] for c in fr.load_club_list()}
+    show = lambda c: '保留' if c is None else ('クラブ以外' if c == '' else label.get(c, c))
+    wb = Workbook()
+    ws = wb.active
+    ws.title = '全行'
+    head = ['ファイル', 'ページ', '行', '馬名（候補1）', '馬名（候補2）', '判定（今の条件）', '判定（B案）', '馬主名の読み1', '読み2', '読み3', '読み4']
+    ws.append(head)
+    cntA, cntB = Counter(), Counter()
+    for pdf, page, rows in results:
+        for cands, readings, c, i in rows:
+            b = plan_b(readings, c)
+            cntA[show(c)] += 1
+            cntB[show(b)] += 1
+            ws.append([os.path.basename(pdf), page, i, cands[0], cands[1] if len(cands) > 1 else '', show(c), show(b)] + list(readings[:4]))
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill('solid', fgColor='DDEBDD')
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+    for col, w in zip('ABCDEFGHIJK', [24, 6, 5, 20, 20, 22, 22, 30, 30, 30, 30]):
+        ws.column_dimensions[col].width = w
+    s2 = wb.create_sheet('集計')
+    s2.append(['判定', '今の条件（行数）', 'B案（行数）'])
+    for k in sorted(set(cntA) | set(cntB), key=lambda k: -cntA.get(k, 0)):
+        s2.append([k, cntA.get(k, 0), cntB.get(k, 0)])
+    s2.column_dimensions['A'].width = 28
+    if '--check' in args:
+        races = json.load(open(args[args.index('--check') + 1], encoding='utf-8'))
+        s3 = wb.create_sheet('今週のクラブ馬との照合')
+        s3.append(['馬名', '出馬表のクラブ', '名簿での判定（今の条件）', '結果'])
+        for h in sorted({h['name']: h for h in races['horses']}.values(), key=lambda h: h['name']):
+            got = names.get(h['name'], None)
+            res = '名簿で見つからない' if got is None else ('一致' if got == h['clubId'] else '判定が違う')
+            s3.append([h['name'], label.get(h['clubId'], h['clubId']), show(got) if got is not None else '', res])
+        s3.column_dimensions['A'].width = 22
+        s3.column_dimensions['B'].width = 26
+        s3.column_dimensions['C'].width = 26
+    wb.save(path)
+    print('書き出した:', path, flush=True)
 
 
 if __name__ == '__main__':
