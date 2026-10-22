@@ -1059,7 +1059,7 @@ const isMobile=()=>matchMedia('(pointer: coarse)').matches;
 const isMac=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent);
 const PASTE_KEY=isMac?'<kbd>⌘</kbd>＋<kbd>V</kbd>':'<kbd>Ctrl</kbd>＋<kbd>V</kbd>';
 $('#post-hint').innerHTML = isMobile()
-  ? '「X(Twitter)に投稿」を押すと共有メニューが開きます。<b>X</b> を選ぶと、画像と本文が入った投稿画面になります。'
+  ? '「X(Twitter)に投稿」を押すと共有メニューが開きます。<b>X</b> を選ぶと、画像と本文が入った投稿画面になります。Androidで X アプリが開くだけの時は、X アプリを一度終了してからもう一度押してください。'
   : '「X(Twitter)に投稿」を押すと画像をコピーしてXの投稿画面を開きます。本文欄をクリックして '+PASTE_KEY+' で画像を貼り付けてください。';
 function canShareFile(){ if(!isMobile()||!navigator.canShare||!pngBlob) return false; try{ return navigator.canShare({files:[new File([pngBlob],pngName(),{type:'image/png'})]}); }catch(e){ return false; } }
 async function doShare(){ const st=$('#status');
@@ -1076,7 +1076,9 @@ function showGuide(mode){ const dlg=$('#post-guide');
     paste:['画像をコピーしました','下の「Xを開く」を押すと、本文入りの投稿画面が開きます','本文欄をクリックして '+PASTE_KEY+' で画像を貼り付け','確認して投稿'],
     file:['このブラウザではコピーできないので、画像を保存しました','下の「Xを開く」を押すと、本文入りの投稿画面が開きます','画像ボタン（🖼）から保存した画像を添付','確認して投稿']}[mode];
   $('#pg-steps').innerHTML=steps.map(t=>`<li>${t}</li>`).join('');
-  $('#pg-note').textContent = mode==='share' ? 'X を選んでも本文が入らない場合は、本文を手で入力してください。' : 'Xにログインしていない場合は、先にログインしてください。';
+  /* Android の X アプリはバックグラウンドで開いていると、共有を受け取らずに前の画面を出すことがある（10/22 確認）。
+     Android タブレットの Chrome は UA に Android が出ないことがあるので、端末は判定せずに書き添える */
+  $('#pg-note').textContent = mode==='share' ? 'X を選んでも本文が入らない場合は、本文を手で入力してください。Androidで X アプリが開くだけで投稿画面にならない時は、X アプリを一度終了（最近使ったアプリの一覧から閉じる）してから、もう一度押してください。' : 'Xにログインしていない場合は、先にログインしてください。';
   $('#pg-go').textContent = mode==='share' ? '共有メニューを開く' : 'Xを開く';
   $('#pg-skip').checked=false;
   $('#pg-h').textContent='Xに投稿する'+(isMobile()?'(スマホ)':'(PC)');
