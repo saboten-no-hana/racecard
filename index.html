@@ -1287,7 +1287,9 @@ function checkHashImport(){
 /* 利用者が書いた・貼り付けた文章からカタカナの馬名を拾う。外部サイトには一切アクセスしない。
    ・カタカナの連なり（2〜9文字）を候補にする。直後に数字が続くもの（募集名「〇〇25」）は除く
    ・ひらがなで書かれた語は、改行や読点などで区切られた1語だけをカタカナにして候補にする
-   ・サイトのメニュー等によく出る語（NOT_NAME）は、今週の出馬表に同じ名前の馬がいない限り除く */
+   ・サイトのメニュー等によく出る語（NOT_NAME）は、今週の出馬表に同じ名前の馬がいない限り除く
+   ・メニュー語をつなげた形の語（クラブデータ など）は、実在の馬名のこともある（トップチェッカー＝トップ＋チェッカー、10/22 報告）ので、
+     除かずに「チェックなし」で候補に出し、利用者が選べるようにする */
 const NOT_NAME=new Set(('クラブ データ ツール ログイン ログアウト カタログ コラム シート チェッカー ニックス インブリード シミュ ランキング ノウハウ プレミアム サポート '
   +'サポートセンター ガイド フィギュア リンク シェア シェアリンク ページ マイページ トップ ホーム メニュー ニュース ヘルプ サービス サイト コンテンツ カテゴリ '
   +'プライバシー ポリシー メール パスワード アカウント ユーザー アプリ ダウンロード コピー リスト メモ テキスト ボタン クリック タップ ファイル '
@@ -1309,14 +1311,17 @@ function extractNames(text){
 function renderBulk(){
   const P=$('#b-prev'), on=BULK.length>0;
   P.hidden=!on; $('#b-act').hidden=!on;
-  P.innerHTML=BULK.map((c,i)=>`<label class="${c.done?'done':''}"><input type="checkbox" data-i="${i}"${c.done?' checked disabled':c.on?' checked':''}>${esc(c.name)}<small>${c.done?'登録済み':c.x?'今週出走':'出走待ち'}</small></label>`).join('');
+  P.innerHTML=BULK.map((c,i)=>`<label class="${c.done?'done':''}"><input type="checkbox" data-i="${i}"${c.done?' checked disabled':c.on?' checked':''}>${esc(c.name)}<small>${c.done?'登録済み':c.x?'今週出走':c.menu?'メニューの語かも':'出走待ち'}</small></label>`).join('');
   const k=BULK.filter(c=>c.on&&!c.done).length; $('#b-ok').textContent=`★を付ける（${k}頭）`; $('#b-ok').disabled=!k;
 }
 $('#b-parse').addEventListener('click',()=>{ const st=$('#b-status');
-  const names=extractNames($('#b-in').value).filter(n=>!menuWord(n)||(RACES&&RACES.horses.some(x=>x.name===n)));
-  BULK=names.map(n=>{ const x=RACES&&RACES.horses.find(y=>y.name===n); return {name:n,x,on:true,done:knownName(n)||!!(x&&isMine(x.horseId))}; });
+  const inRaces=n=>!!(RACES&&RACES.horses.some(x=>x.name===n));
+  const names=extractNames($('#b-in').value).filter(n=>!NOT_NAME.has(n)||inRaces(n));
+  BULK=names.map(n=>{ const x=RACES&&RACES.horses.find(y=>y.name===n), menu=!x&&menuWord(n);
+    return {name:n,x,menu,on:!menu,done:knownName(n)||!!(x&&isMine(x.horseId))}; });
   renderBulk();
-  st.textContent=!BULK.length?'カタカナの馬名が見つかりませんでした':`${BULK.length}頭の馬名が見つかりました。確認して「★を付ける」を押してください`; });
+  const nm=BULK.filter(c=>c.menu&&!c.done).length;
+  st.textContent=!BULK.length?'カタカナの馬名が見つかりませんでした':`${BULK.length}頭の馬名が見つかりました。確認して「★を付ける」を押してください`+(nm?`（サイトのメニューの語に似た${nm}件はチェックを外してあります。馬名ならチェックしてください）`:''); });
 $('#b-prev').addEventListener('change',e=>{ const i=e.target.dataset.i; if(i==null) return; BULK[i].on=e.target.checked; renderBulk(); });
 $('#b-cancel').addEventListener('click',()=>{ BULK=[]; renderBulk(); $('#b-status').textContent=''; });
 $('#b-ok').addEventListener('click',()=>{ let a=0,p=0;
