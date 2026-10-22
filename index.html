@@ -16,7 +16,7 @@
 <meta property="og:title" content="出資馬出走カードメーカー">
 <meta property="og:description" content="今週末に出走する一口出資馬を、勝負服・レース番号・枠色つき馬番入りの1枚の画像に。複数クラブ対応・無料・登録不要。">
 <meta property="og:url" content="https://saboten-no-hana.github.io/racecard/">
-<meta property="og:image" content="https://saboten-no-hana.github.io/racecard/og.png?v=7">
+<meta property="og:image" content="https://saboten-no-hana.github.io/racecard/og.png?v=8">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="ツールの紹介と、作成ページ・出走予定の出資馬を勝負服つきで並べた縦長の画像の例">
@@ -786,7 +786,7 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   let cx0=tx, chipEnd=tx;
   if(inlineBadge&&scr){ /* 取消・除外は必ず見せたいので、狭い時はクラブ名より前に置く */
     const fs=Math.round(sA); ctx.font=`900 ${fs}px ${F.body}`; const pw=ctx.measureText(label).width+fs*1.2; paintBadge(tx,cy,pw,chipH,fs); cx0=tx+pw+sA*.6; chipEnd=cx0; }
-  /* 性齢・斤量（10/19〜、設定で切替）: 性齢はクラブ名の右、斤量は3行目の騎手名の前に「 / 」で区切って（10/22〜、私の指定。以前は「牡4 57kg」をクラブ名の右）。
+  /* 性齢・斤量（10/19〜、設定で切替）: 性齢はクラブ名の右、斤量は3行目の騎手名の前（10/22〜、私の指定。3行目の項目の区切りは「 / 」をやめて全角スペース。以前は「牡4 57kg」をクラブ名の右）。
      性齢の場所が足りなければクラブ名を少し（15%まで）縮める。それでも入らない時（狭い行で口取りバッジもある時など）だけ3行目の最後 */
   const showAw=S.showAgeWeight!==false, kg=showAw?kgText(hr.weight):'';
   const aw=showAw?(hr.sexAge||''):''; let awLine='';
@@ -811,8 +811,8 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   cy+=sB+g;
   const lc=hr.raceName||'';
   const c=fit(ctx,lc,700,F.body,sC,tw); ctx.fillStyle=T.fg; ctx.fillText(c.t,tx,cy+sC*.86); cy+=sC+g*.7;
-  /* 性齢・斤量を3行目に回した時は「発走」と区切りの空白を省いて、文字が小さくなりすぎないようにする */
-  const ld=[hr.time?hr.time+(awLine?'':' 発走'):'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), kg, hr.jockey, awLine].filter(Boolean).join(awLine?' / ':'  /  ');
+  /* 性齢を3行目に回した時は「発走」を省いて、文字が小さくなりすぎないようにする */
+  const ld=[hr.time?hr.time+(awLine?'':' 発走'):'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), kg, hr.jockey, awLine].filter(Boolean).join('　');
   const d=fit(ctx,ld,500,F.body,sD,tw); ctx.fillStyle=T.sub; ctx.fillText(d.t,tx,cy+sD*.86);
 }
 
