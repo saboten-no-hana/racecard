@@ -3,7 +3,7 @@ JRAホームページの出馬表から、一口クラブ名義の出走馬だ�
 
 - 木曜16時すぎ: 馬番なしの出馬表（出走確定）
 - レース前日10時すぎ: 枠番・馬番つきの出馬表
-が公開されるので、GitHub Actions で毎日 16:05〜 と 10:05〜 に確認する（.github/workflows/fetch-races.yml）。
+が公開されるので、GitHub Actions で毎日 16:05〜（木曜は早めに 15:45〜）と 10:05〜 に確認する（.github/workflows/fetch-races.yml）。
 
 馬番なしの出馬表には馬主名が載らないため、馬ごとに「どのクラブの馬か（クラブ以外なら空）」を
 data/cache.json に記録して週をまたいで使い回す（個人馬主の名前は保存しない）。
@@ -16,7 +16,7 @@ data/cache.json に記録して週をまたいで使い回す（個人馬主の�
   python3 tools/fetch_races.py            # JRAから1回取得
   python3 tools/fetch_races.py --offline DIR  # 保存済みHTMLで動作確認（DIR/*.html）
   python3 tools/fetch_races.py --mode confirm --start 16:05 --until 18:30 [--watch-until 16:35]
-      # 16:05（日本時間）から、races.json にない開催日の出走確定の出馬表が載るのを5分おきに確認して取得。
+      # 16:05（日本時間。木曜は 15:45）から、races.json にない開催日の出走確定の出馬表が載るのを5分おきに確認して取得。
       # 木曜は週末分を 18:30 まで待つ。ほかの曜日は年末年始・代替競馬などの平日開催に備えて
       # --watch-until まで確認し、何も載らなければ終了（トップを数回読むだけ）
   python3 tools/fetch_races.py --mode umaban --start 10:05 --until 12:00

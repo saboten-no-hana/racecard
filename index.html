@@ -1155,7 +1155,7 @@ function raceState(){
   const days=(RACES.days||[]).map(d=>d.date).filter(d=>d>=N.ymd).sort();
   if(!days.length){
     if(yearEnd) return {wait:true,html:'年末年始は開催日・発表時刻が不規則です。出馬表が発表されると5分ほどで載ります。'};
-    if(N.wd===4&&N.min>=15*60+50&&N.min<19*60+30) return {wait:true,reload:true,html:'<b>出走確定の発表待ち</b>です。木曜16時すぎの発表を5分おきに確認していて、発表から5〜10分ほどで載ります。'};
+    if(N.wd===4&&N.min>=15*60+40&&N.min<19*60+30) return {wait:true,reload:true,html:'<b>出走確定の発表待ち</b>です。木曜16時すぎの発表を5分おきに確認していて、発表から5〜10分ほどで載ります。'};
     const when=N.wd===4&&N.min<16*60?'今日（木曜）16時すぎ':'木曜16時すぎ';
     return {wait:true,html:`次の週の出走馬は <b>${when}</b> に載ります（馬番は各レースの前日10時すぎ）。`};
   }
