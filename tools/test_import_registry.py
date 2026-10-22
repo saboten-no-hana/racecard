@@ -21,7 +21,10 @@ class TestClassify(unittest.TestCase):
     def test_clubs(self):
         # ㈱㈲ は「覆」「称」などに読み違えることがある
         for o, c in [('覆キャロットファーム', 'carrot'), ('株社台レースホース', 'shadai'), ('称G1レーシング', 'g1'),
-                     ('株ノルマンディーサラブレッドレ一シング', 'normandy'), ('株ウイン', 'win'), ('BloomingRacing', 'blooming')]:
+                     ('株ノルマンディーサラブレッドレ一シング', 'normandy'), ('株ウイン', 'win'), ('BloomingRacing', 'blooming'),
+                     # 10/22 の名簿で実際にあった読み違い（濁点が取れる・前後の字が崩れる・小さい字）
+                     ('除ダルプリーダーズ・ユニオ', 'union'), ('机友駿ホースクラフ', 'yushun'), ('條ノルマンデイーサフブ', 'normandy'),
+                     ('覆サラフレッドクラブ・ラフィア', 'ruffian'), ('株ウィン', 'win'), ('覆キャロット', 'carrot')]:
             self.check(o, c)
 
     def test_not_club(self):
@@ -30,7 +33,8 @@ class TestClassify(unittest.TestCase):
 
     def test_unsure(self):
         # 似ているがクラブではない名義・読めずに崩れた字は、どちらとも決めない（木曜に馬のページで確かめる）
-        for o in ['株ウインレーシング', '株Gリビエール・レーシング', '覆キャロット', '症', '馬。主', '']:
+        for o in ['株ウインレーシング', '株Gリビエール・レーシング', '症', '馬。主', '', '株ライオンズクラブ', '株グリーンウッド', '有サンデーヒルズ',
+                  'レッドレーシンダー']:
             self.check(o, None)
 
     def test_kana_name(self):

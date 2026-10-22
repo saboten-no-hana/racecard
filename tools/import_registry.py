@@ -144,6 +144,24 @@ def decide(readings, imgs, clubs):
     return ('' if '' in res else None), readings
 
 
+DAKU = str.maketrans('ガギグゲゴザジズゼゾダヂヅデドバビブベボパピプペポヴァィゥェォャュョッヮ',
+                     'カキクケコサシスセソタチツテトハヒフヘホハヒフヘホウアイウエオヤユヨツワ')
+GENERIC = ['サラフレツトクラフ', 'ホースクラフ', 'レーシンク', 'レースホース', 'オーナース', 'ファーム', 'クラフ', 'ホース', 'レース']
+
+
+def loose(s):
+    """OCR の読み違いが多い所をならす: 濁点・半濁点を取り、小さい字を大きくし、記号を除く"""
+    return re.sub(r'[・･.。、,\-－‐()（）<>＞＜|｜\'"]', '', s.replace('一', 'ー').translate(DAKU))
+
+
+def core(key):
+    """クラブの名義から、ほかの名義にもよくある語（レーシング・ホースクラブ など）を除いた固有の部分"""
+    k = loose(key)
+    for g in GENERIC:
+        k = k.replace(loose(g), '')
+    return k
+
+
 def classify(owner, clubs):
     """馬主名（OCR）→ クラブID / ''（クラブ以外）/ None（あやしいので保存しない）"""
     if not owner:
@@ -152,19 +170,25 @@ def classify(owner, clubs):
     n = re.sub(r'^\(?[株有合同覆称症]\)?', '', n)   # ㈱㈲ は「覆」「称」などに読み違えやすい
     if n.endswith('氏'):
         return ''     # 個人馬主
-    best, bid, common = 0.0, None, 0
+    ln = loose(n)
+    best, bid = 0.0, None
     for key, cid in clubs.items():
-        sm = SequenceMatcher(None, n, key)
-        r = sm.ratio()
-        common = max(common, sm.find_longest_match(0, len(n), 0, len(key)).size)
+        lk = loose(key)
+        r = SequenceMatcher(None, ln, lk).ratio()
         if len(key) >= 5 and key in n:    # 「ウイン」のような短い名義は部分一致にしない（ウイン〇〇 などを拾わないため）
             r = max(r, 0.95)
+        # 固有の部分（ノルマンディー・ブリーダーズユニオン・ラフィアン など、5字以上。ライオン など4字以下は一般の名義にも含まれやすいので使わない）が読めていて、全体もある程度似ていればそのクラブ
+        # （長い名義は縮めて印刷され、前後の字が崩れたり欠けたりしやすい）
+        c = core(key)
+        w = min(6, len(c))
+        if len(c) >= 5 and any(c[i:i + w] in ln for i in range(len(c) - w + 1)) and r >= 0.55:
+            r = max(r, 0.9)
         if r > best:
             best, bid = r, cid
     if best >= CLUB_MIN:
         return bid
-    if len(n) >= OTHER_MIN_LEN and (best < OTHER_MAX or common <= 3):
-        return ''     # どのクラブの名義とも、続けて4字以上同じ所がない（ワイズマン、ノースヒルズ など）
+    if best < OTHER_MAX and len(n) >= OTHER_MIN_LEN:
+        return ''     # どのクラブの名義とも似ていない（個人・一般の法人）。クラブの名義が崩れて読めた時にここへ来ないよう、ゆるめない
     return None
 
 
@@ -256,7 +280,7 @@ def main():
         report(f'見つからない（初出走・名簿の後の登録・読み違い）: {miss}')
         report(f'見つからないうち、名簿に馬名はあった（馬主名の判定を保留）: {[(n, club[n], raw[n][1]) for n in miss if n in raw]}')
         report(f'見つからないうち、名簿に馬名もない: {[n for n in miss if n not in raw]}')
-        report(f'判定が違う（要確認）: {[(n, club[n], names[n]) for n in wrong]}')
+        report(f'判定が違う（要確認）: {[(n, club[n], names[n], raw.get(n, (None, []))[1]) for n in wrong]}')
 
     # 名簿の時点（名簿のページの「9月27日（日曜）現在の情報です」）
     today = datetime.now(fr.JST).date()
