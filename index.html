@@ -71,6 +71,7 @@ dialog.guide .skip{display:flex;gap:6px;align-items:center;font-size:13px;color:
 dialog.guide .acts{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 dialog.guide #tc-go{border-color:var(--danger)}
 .t-clear{display:flex;justify-content:flex-end;margin-top:8px}
+.t-find{margin-bottom:8px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:14px}
 .panel h2,.editor-head h2{font-size:13px;letter-spacing:.12em;font-weight:700;color:var(--muted);margin:0}
@@ -224,6 +225,7 @@ footer.site-foot a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
       <div class="checks"><label><input type="checkbox" id="p-mine">★ 登録した出資馬だけ表示</label></div>
       <details class="transfer" id="transfer">
         <summary>★を他の端末に引き継ぐ（<span id="t-count">0</span>頭）</summary>
+        <label class="fld t-find" id="t-find" hidden><span>★の馬を馬名で絞り込む</span><input type="text" id="t-q" placeholder="カタカナ・ひらがなの一部でも可" autocomplete="off"></label>
         <div class="mylist" id="t-list"></div>
         <div class="t-clear"><button type="button" class="danger" id="t-clear" hidden>★をすべて外す</button></div>
         <dialog class="guide" id="t-clear-dlg" aria-labelledby="tc-h">
@@ -1244,8 +1246,13 @@ function renderTransfer(){
   $('#t-count').textContent=myTotal(); $('#t-clear').hidden=!myTotal();
   if(!$('#t-qrbox').hidden) showQR();
   $('#t-code').value=myTotal()?myCode():'';
-  $('#t-list').innerHTML=(state.myHorses.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')
-    +state.myPending.map(n=>`<span>${esc(n)}<small>出走待ち</small><button type="button" data-name="${esc(n)}" aria-label="★を外す" title="★を外す">✕</button></span>`).join(''))||'<p class="pempty">まだ★を付けた馬はいません。</p>';
+  /* ★の一覧の絞り込み（10/22〜、出資馬が多い人向け）。★が10頭以上の時だけ出す */
+  $('#t-find').hidden=myTotal()<10; if($('#t-find').hidden) $('#t-q').value='';
+  const q=($('#t-q').value||'').trim().normalize('NFKC').replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)), hit=n=>!q||String(n).includes(q);
+  const ids=state.myHorses.filter(id=>hit(state.myNames[id]||'')), pend=state.myPending.filter(hit);
+  if(q&&!ids.length&&!pend.length){ $('#t-list').innerHTML='<p class="pempty">「'+esc(q)+'」を含む★の馬はいません。</p>'; return; }
+  $('#t-list').innerHTML=(ids.map(id=>`<span>${esc(state.myNames[id]||('ID '+id))}<button type="button" data-id="${id}" aria-label="★を外す" title="★を外す">✕</button></span>`).join('')
+    +pend.map(n=>`<span>${esc(n)}<small>出走待ち</small><button type="button" data-name="${esc(n)}" aria-label="★を外す" title="★を外す">✕</button></span>`).join(''))||'<p class="pempty">まだ★を付けた馬はいません。</p>';
 }
 /* 出走待ちの馬名が今週の出馬表に出ていれば、馬IDの★に切り替える（現役の登録馬名は重複しないので名前で照合） */
 function resolvePending(){
@@ -1283,6 +1290,7 @@ $('#t-list').addEventListener('click',e=>{ const b=e.target.closest('button[data
 /* ★をすべて外す（10/22、βテストの要望。出資馬が100頭を超えると1頭ずつ探して外すのが大変なため）。確認のダイアログを挟む */
 $('#t-clear').addEventListener('click',()=>{ $('#tc-msg').textContent=`★を付けた${myTotal()}頭（出走待ちを含む）をすべて外します。`; $('#t-clear-dlg').showModal(); });
 $('#tc-cancel').addEventListener('click',()=>$('#t-clear-dlg').close());
+$('#t-q').addEventListener('input',renderTransfer);
 $('#tc-go').addEventListener('click',()=>{ const n=myTotal(); state.myHorses=[]; state.myPending=[]; state.myNames={};
   save(); renderTransfer(); renderPicker(); $('#t-clear-dlg').close(); $('#t-status').textContent=`★を${n}頭外しました。`; });
 function checkHashImport(){
