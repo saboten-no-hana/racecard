@@ -811,8 +811,8 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   cy+=sB+g;
   const lc=hr.raceName||'';
   const c=fit(ctx,lc,700,F.body,sC,tw); ctx.fillStyle=T.fg; ctx.fillText(c.t,tx,cy+sC*.86); cy+=sC+g*.7;
-  /* 性齢を3行目に回した時は「発走」を省いて、文字が小さくなりすぎないようにする */
-  const ld=[hr.time?hr.time+(awLine?'':' 発走'):'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), kg, hr.jockey, awLine].filter(Boolean).join('　');
+  /* 性齢を3行目に回した時は、距離と斤量の間に置き（10/22、私の指定）、「発走」を省いて文字が小さくなりすぎないようにする */
+  const ld=[hr.time?hr.time+(awLine?'':' 発走'):'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), awLine, kg, hr.jockey].filter(Boolean).join('　');
   const d=fit(ctx,ld,500,F.body,sD,tw); ctx.fillStyle=T.sub; ctx.fillText(d.t,tx,cy+sD*.86);
 }
 
