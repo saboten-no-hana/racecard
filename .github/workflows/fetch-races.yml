@@ -7,7 +7,8 @@ name: 出馬表の取得
 # 時刻はUTC（日本時間 = UTC+9）。
 on:
   schedule:
-    - cron: '25 6 * * *'   # 毎日 15:25 JST 起動 → 15:45 から新しい開催日の出走確定を確認
+    - cron: '45 5 * * *'   # 毎日 14:45 JST 起動 → 15:45 から新しい開催日の出走確定を確認
+                           #   （定期実行は30〜50分遅れることがある＝10/21・10/22 実績。1時間前に起動して待つ）
                            #   （16時前の15:50ごろに載ることもあるため、発表の16時より早めに見る）
                            #   木曜は 18:30 まで待つ。ほかの曜日は 16:35 までに何も載らなければ終了（トップ11回）
     - cron: '5 10 * * 4'   # 木 19:05 JST 安全網（1回だけ取得。有馬記念の週の枠順抽選 18:30ごろ もここで拾う）
@@ -28,7 +29,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 210   # 木曜は 15:25 起動〜18:30 まで待つことがある
+    timeout-minutes: 300   # 木曜は 14:45 起動〜18:30 まで待ち、そのあと全体の取得（初期は40分ほど）が続くことがある
     # 失敗（GitHub からメールが届く）になるのは: 出馬表トップの形式が読めない／木曜に週末の出馬表を取れなかった（年末年始を除く）
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +40,7 @@ jobs:
       - name: 出馬表を取得
         run: |
           case "${{ github.event.schedule }}${{ inputs.mode }}" in
-            '25 6 * * *'|confirm)
+            '45 5 * * *'|confirm)
               if [ "$(TZ=Asia/Tokyo date +%u)" = 4 ]; then W=18:30; else W=16:35; fi
               ARGS="--mode confirm --start 15:45 --until 18:30 --watch-until $W" ;;
             '45 0 * * *'|umaban) ARGS='--mode umaban --start 10:05 --until 12:00' ;;
