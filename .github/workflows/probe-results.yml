@@ -1,0 +1,28 @@
+name: 調査（レース結果ページ）
+# probe-results ブランチだけで動く一時的な調査。main には入れない。調査が終わったらブランチごと消す。
+on:
+  push:
+    branches: [probe-results]
+    paths: ['tools/probe_results.py', '.github/workflows/probe-results.yml', 'probe/rerun']
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install beautifulsoup4==4.12.3
+      - run: python3 tools/probe_results.py
+      - name: Commit
+        if: ${{ !cancelled() }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add probe/*.html
+          git diff --cached --quiet && exit 0
+          git commit -m "調査: レース結果ページを保存 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          git push
