@@ -38,6 +38,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data')
 OUT = os.path.join(DATA, 'races.json')
 CACHE = os.path.join(DATA, 'cache.json')
+NAMES = os.path.join(DATA, 'names.json')   # 登録馬名簿（tools/import_registry.py）から作った 馬名 → クラブID（クラブ以外は ''）
+NAMES_DAYS = 180                           # 名簿を取り込んでからこの日数を過ぎたら使わない（記録は毎週の取得で馬IDごとに貯まるため）
 BASE = 'https://www.jra.go.jp'
 UA = 'Mozilla/5.0 (compatible; racecard/1.0; +https://github.com/saboten-no-hana/racecard)'
 JST = timezone(timedelta(hours=9))
@@ -54,6 +56,18 @@ def load_clubs():
     if len(out) < 10:
         raise SystemExit('clubs.js からクラブを読み取れませんでした')
     return out
+
+def load_names(now=None):
+    """登録馬名簿の 馬名 → クラブID。なければ・古ければ空"""
+    if not os.path.exists(NAMES):
+        return {}
+    d = json.load(open(NAMES, encoding='utf-8'))
+    now = now or datetime.now(JST)
+    try:
+        age = (now.date() - datetime.strptime(d.get('imported', ''), '%Y-%m-%d').date()).days
+    except ValueError:
+        return {}
+    return d.get('names', {}) if age <= NAMES_DAYS else {}
 
 def load_club_list():
     """clubs.js から [{id, name}]（要約の表示用）"""
@@ -413,7 +427,8 @@ def attempt(f, clubs, mode, ctx):
         club_of[h['horseId']] = clubs.get(norm_owner(owner), '')
 
     result = []
-    stats = {'detail': 0, 'horse': 0}
+    stats = {'detail': 0, 'horse': 0, 'names': 0}
+    names = load_names()
     complete = True
     for mt in meetings:
         race_pages, races = read_meeting(f, mt)
@@ -439,6 +454,11 @@ def attempt(f, clubs, mode, ctx):
                             ctx.setdefault('changed', []).append(f"{d['name']}（{was} → {club_of[d['horseId']] or 'クラブ以外'}）")
                 unknown = [h for h in race['horses'] if h['horseId'] not in club_of]
             for h in unknown:
+                # 登録馬名簿で分かる馬は、馬のページを読まずに記録する
+                if h['name'] in names:
+                    club_of[h['horseId']] = names[h['name']]
+                    stats['names'] += 1
+                    continue
                 if not h['horseCname']:
                     continue
                 owner = horse_owner(f.get(h['horseCname'], path='/JRADB/accessU.html'))
@@ -457,7 +477,7 @@ def attempt(f, clubs, mode, ctx):
                     'surface': race.get('surface', ''), 'dist': race.get('dist', ''),
                     'jockey': h['jockey'], 'waku': h['waku'], 'umaban': h['umaban'], 'sexAge': h['sexAge'], 'weight': h['weight'], 'status': h['status'],
                 })
-        print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']}", flush=True)
+        print(f"  {mt['date']} {mt['venue']}: {len(races)}R / 累計 {len(result)} 頭 / 詳細 {stats['detail']} / 馬ページ {stats['horse']} / 名簿 {stats['names']}", flush=True)
         if mt in check:
             ok = confirm_complete(mt['cname'], race_pages, races, ctx['prev']) if mode == 'confirm' else umaban_complete(races)
             if not ok:
