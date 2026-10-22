@@ -530,7 +530,7 @@ function drawSilks(ctx,x,y,s,sk,halo){
 
 function drawSilksImg(ctx,img,x,y,s,halo){
   const iw=img.naturalWidth||1, ih=img.naturalHeight||1, k=Math.min(s/iw,s/ih), w=iw*k, h=ih*k, dx=x+(s-w)/2, dy=y+(s-h)/2;
-  ctx.save(); if(halo){ ctx.shadowColor=halo; ctx.shadowBlur=s*.08; } ctx.drawImage(img,dx,dy,w,h); ctx.restore();
+  ctx.save(); if(halo){ ctx.shadowColor=halo; ctx.shadowBlur=s*.08*(ctx.getTransform?ctx.getTransform().a:1); } /* 影のぼかしは拡大の影響を受けないので、書き出しの倍率を掛ける */ ctx.drawImage(img,dx,dy,w,h); ctx.restore();
 }
 
 /* ---------- background ---------- */
@@ -841,6 +841,11 @@ function rangeText(horses){
 const imgCache={};
 function loadImg(src){ if(imgCache[src]) return Promise.resolve(imgCache[src]); return new Promise(r=>{ const i=new Image(); i.onload=()=>{imgCache[src]=i;r(i);}; i.onerror=()=>r(null); i.src=src; }); }
 
+/* 書き出しの解像度（10/22〜）: 配置・文字の大きさは W×H の座標のまま、OUT_SCALE 倍の画素で描く（10頭を超えると小さい文字が潰れていたため）。
+   長辺は OUT_MAX_SIDE まで。PNG が X の上限（5MB）を超えそうな時は、描いた画像を縮めて書き出し直す */
+const OUT_SCALE=2, OUT_MAX_SIDE=4096, OUT_MAX_BYTES=4.8e6;
+const toBlobP=c=>new Promise(r=>c.toBlob(r,'image/png'));
+let outUrl='';
 async function render(){
   const S=state.settings, T=S.theme==='custom'?customTheme(S.custom):(THEMES[S.theme]||THEMES.turf);
   if(S.theme==='custom'&&S.custom&&S.custom.image) await loadImg(S.custom.image);
@@ -853,7 +858,8 @@ async function render(){
   await Promise.all([...new Set(hs.map(silksImgSrc).filter(Boolean))].map(async src=>{ const i=await loadImg(src); if(i&&i.naturalWidth) imgs[src]=i; }));
 
   const L=layoutOf(hs,S), W=L.W, H=L.H, pad=L.pad, ts=L.ts;
-  const cv=$('#cv'); cv.width=W; cv.height=H; const ctx=cv.getContext('2d');
+  const k=Math.min(OUT_SCALE,OUT_MAX_SIDE/Math.max(W,H));
+  const cv=$('#cv'); cv.width=Math.round(W*k); cv.height=Math.round(H*k); const ctx=cv.getContext('2d'); ctx.setTransform(cv.width/W,0,0,cv.height/H,0,0);
   drawBg(ctx,W,H,T,S.theme,pad);
   let y=pad;
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
@@ -890,7 +896,13 @@ async function render(){
   }
   const sw=$('#scr-warn'), sc=hs.filter(h=>h.status);
   sw.hidden=!sc.length; sw.textContent=sc.length?`出走取消・競走除外の馬がいます（${sc.map(h=>(h.name||'馬名未入力')+'：'+h.status).join('、')}）。画像には「出走取消」「競走除外」と表示されます。載せない場合はその馬を削除してください。`:'';
-  $('#out').src=cv.toDataURL('image/png'); pngBlob=null; cv.toBlob(b=>{ pngBlob=b; },'image/png'); /* 共有メニューはタップ直後に呼ぶ必要があるので先に作っておく */
+  /* PNG は描画のたびに先に作っておく（共有メニューはタップ直後に呼ぶ必要があるため）。プレビュー・保存も同じ PNG（blob URL）を使う */
+  pngBlob=null; let blob=await toBlobP(cv), k2=k;
+  while(blob && blob.size>OUT_MAX_BYTES && k2>1){ k2=Math.max(1,k2*Math.sqrt(OUT_MAX_BYTES/blob.size)*.95);
+    const c2=document.createElement('canvas'); c2.width=Math.round(W*k2); c2.height=Math.round(H*k2); const x2=c2.getContext('2d'); x2.imageSmoothingQuality='high'; x2.drawImage(cv,0,0,c2.width,c2.height);
+    blob=await toBlobP(c2); }
+  if(!blob) return;
+  pngBlob=blob; const old=outUrl; outUrl=URL.createObjectURL(blob); $('#out').src=outUrl; if(old) URL.revokeObjectURL(old);
 }
 let rT, rendering=false, again=false;
 function schedule(){ clearTimeout(rT); rT=setTimeout(async()=>{ if(rendering){ again=true; return; } rendering=true; try{ await render(); }finally{ rendering=false; if(again){ again=false; schedule(); } } },140); }
@@ -1044,7 +1056,7 @@ document.querySelectorAll('input[name=order]').forEach(r=>r.addEventListener('ch
 
 $('#copy').addEventListener('click',()=>{ const st=$('#status');
   try{
-    const p=new Promise(res=>$('#cv').toBlob(res,'image/png'));
+    const p=pngBlob||toBlobP($('#cv'));
     navigator.clipboard.write([new ClipboardItem({'image/png':p})]).then(()=>{ st.textContent='コピーしました。Xの投稿画面に貼り付けできます'; },()=>{ st.textContent='このブラウザではコピーできません。「画像を保存」を使ってください'; });
   }catch(e){ st.textContent='このブラウザではコピーできません。「画像を保存」を使ってください'; }
 });

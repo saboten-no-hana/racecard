@@ -133,7 +133,7 @@ def main():
                 pg.route('**/fonts.gstatic.com/**', lambda r: r.abort())
                 pg.add_init_script(init)
                 pg.goto(url)
-                pg.wait_for_function("document.getElementById('out').src.startsWith('data:image')")
+                pg.wait_for_function("document.getElementById('out').src.startsWith('blob:')")
                 pg.wait_for_function("document.fonts.check('40px IPAexGothic', '出資馬')")
                 pg.wait_for_timeout(1000)  # 勝負服画像の読み込み後の描き直しを待つ
                 return pg
