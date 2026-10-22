@@ -20,7 +20,7 @@ JRA の「競走馬登録馬名簿」PDF（https://www.jra.go.jp/datafile/resist
 """
 import json, os, re, subprocess, sys, tempfile, unicodedata
 from difflib import SequenceMatcher
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 
 import numpy as np
@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fetch_races as fr  # noqa: E402  clubs.js の読み込みと馬主名の正規化を共通にする
 
 NAMES = os.path.join(fr.DATA, 'names.json')
-DPI = 300
+DPI = 250
 CLUB_MIN = 0.88      # これ以上クラブの名義に似ていればそのクラブ（ゆるいと「ウインレーシング」が「インゼルレーシング」になる）
 OTHER_MAX = 0.45     # どのクラブの名義ともこれ未満ならクラブ以外（空文字）。間は保存しない
 OTHER_MIN_LEN = 4    # クラブ以外と決めるのは、名義らしい長さで読めた時だけ（読めずに崩れた字をクラブ以外にしない）
@@ -81,8 +81,9 @@ def table_cells(img):
 def ocr(img, psm=7):
     with tempfile.NamedTemporaryFile(suffix='.png') as t:
         img.save(t.name)
+        # tesseract は既定で複数スレッドを使い、並列に動かすと取り合って数倍遅くなる（10/22 確認）ので1スレッドにする
         r = subprocess.run(['tesseract', t.name, '-', '-l', 'jpn', '--psm', str(psm)],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, env={**os.environ, 'OMP_THREAD_LIMIT': '1'})
     return r.stdout
 
 
@@ -106,6 +107,8 @@ def read_row(img, cell):
         n = clean_kana(ocr(img.crop((nx0 + pad, y0 + int(hgt * a), nx1 - pad, y0 + int(hgt * z))), psm))
         if KANA_NAME.match(n) and n not in names:
             names.append(n)
+        if len(names) >= 2 or (names and psm == 7 and a == 0.22):   # 2通り読めたか、2つ目まで試して1つ読めていれば十分
+            break
     # 馬主は欄の上半分（下半分は調教師）
     owner_img = img.crop((ox0 + pad, y0 + pad, ox1 - pad, y0 + int(hgt * 0.52)))
     owner = re.sub(r'\s', '', unicodedata.normalize('NFKC', ocr(owner_img)))
@@ -136,12 +139,21 @@ def classify(owner, clubs):
 
 def read_image(img, clubs):
     out = []
-    cells = table_cells(img)
-    with ThreadPoolExecutor(4) as ex:
-        for names, owner in ex.map(lambda c: read_row(img, c), cells):
-            if names:
-                out.append((names, owner, classify(owner, clubs)))
+    for cell in table_cells(img):
+        names, owner = read_row(img, cell)
+        if names:
+            out.append((names, owner, classify(owner, clubs)))
     return out
+
+
+def read_page(job):
+    """1ページを画像にして読む（ページごとに別のプロセスで並列に動かす）"""
+    pdf, page = job
+    clubs = fr.load_clubs()
+    with tempfile.TemporaryDirectory() as d:
+        subprocess.run(['pdftoppm', '-r', str(DPI), '-gray', '-png', '-f', str(page), '-l', str(page), '-singlefile', pdf,
+                        os.path.join(d, 'p')], check=True)
+        return pdf, page, read_image(Image.open(os.path.join(d, 'p.png')).convert('RGB'), clubs)
 
 
 def main():
@@ -152,15 +164,22 @@ def main():
             print(f'{"／".join(names)}\t{c!r}\t{owner}')
         return 0
     src = args[0]
-    pages = []
+    jobs = []
     for pdf in sorted(f for f in os.listdir(src) if f.startswith('registration_') and f.endswith('.pdf') and 'count' not in f):
-        d = tempfile.mkdtemp()
-        subprocess.run(['pdftoppm', '-r', str(DPI), '-gray', '-png', os.path.join(src, pdf), os.path.join(d, 'p')], check=True)
-        pages += [(pdf, os.path.join(d, p)) for p in sorted(os.listdir(d))]
+        info = subprocess.run(['pdfinfo', os.path.join(src, pdf)], capture_output=True, text=True).stdout
+        n = int(re.search(r'Pages:\s+(\d+)', info).group(1))
+        jobs += [(os.path.join(src, pdf), i) for i in range(1, n + 1)]
+    print('ページ数:', len(jobs), flush=True)
     names, bad, stats = {}, set(), {'rows': 0, 'club': 0, 'other': 0, 'unsure': 0, 'dup': 0}
     per_file = {}
-    for pdf, path in pages:
-        rows = read_image(Image.open(path).convert('RGB'), clubs)
+    with ProcessPoolExecutor(os.cpu_count() or 2) as ex:
+        results = []
+        for r in ex.map(read_page, jobs):
+            results.append(r)
+            if len(results) % 25 == 0 or len(results) == len(jobs):
+                print(f'{len(results)}/{len(jobs)} ページ', flush=True)
+    for path, page, rows in results:
+        pdf = os.path.basename(path)
         per_file[pdf] = per_file.get(pdf, 0) + len(rows)
         for cands, owner, c in rows:
             stats['rows'] += 1
@@ -177,7 +196,6 @@ def main():
                     bad.add(name)
                     continue
                 names[name] = c
-        print(f'{pdf} {os.path.basename(path)}: {len(rows)} 行', flush=True)
     print('ファイル別の行数:', per_file)
     print('集計:', stats, '／ 保存する馬名:', len(names), '（うちクラブ', sum(1 for v in names.values() if v), '）')
 
