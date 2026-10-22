@@ -4,7 +4,7 @@
    利用者のデータ（★・入力内容）は扱わない（localStorage のまま） */
 const STATIC = 'racecard-static-v1';
 const PAGES = 'racecard-pages-v1';
-const PRECACHE_PAGES = ['./', 'index.html', 'clubs.js', 'silks-shapes.js', 'qr.js', 'manifest.webmanifest'];
+const PRECACHE_PAGES = ['./', 'index.html', 'clubs.js', 'silks-shapes.js', 'qr.js', 'card-core.js', 'manifest.webmanifest'];
 const PRECACHE_STATIC = ['fonts/ipaexg.ttf', 'icon.svg'];
 
 self.addEventListener('install', e => {
