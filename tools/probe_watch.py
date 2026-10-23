@@ -45,7 +45,7 @@ while True:
         r = (u.get('id') or '').replace('race_result_', '')
         dl = u.select_one('.date_line'); m = re.search(r'(\d+)時(\d+)分', dl.get_text() if dl else '')
         places = [td.get_text(strip=True) for td in u.select('td.place')]
-        st.append(f'{r}({m.group(1)}:{m.group(2) if m else "?"})={sum(1 for p in places if p)}/{len(places)}')
+        st.append(f'{r}({m.group(1) + ":" + m.group(2) if m else "?"})={sum(1 for p in places if p)}/{len(places)}')
     cur = ' '.join(st) or f'レースなし（{len(h)}字）'
     out(cur, cur != prev); prev = cur
     if now() + timedelta(minutes=2) > end: break
