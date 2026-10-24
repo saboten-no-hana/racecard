@@ -47,6 +47,9 @@ while True:
         places = [td.get_text(strip=True) for td in u.select('td.place')]
         st.append(f'{r}({m.group(1) + ":" + m.group(2) if m else "?"})={sum(1 for p in places if p)}/{len(places)}')
     cur = ' '.join(st) or f'レースなし（{len(h)}字）'
+    if cur != prev:   # 状態が変わった回のページを残す（リクエストは増えない）
+        n = len([x for x in os.listdir(OUT) if x.startswith('w3_ses_')])
+        open(os.path.join(OUT, f'w3_ses_{n:02d}_{now().strftime("%H%M%S")}.html'), 'w', encoding='utf-8').write(h)
     out(cur, cur != prev); prev = cur
     if now() + timedelta(minutes=2) > end: break
     time.sleep(120)
