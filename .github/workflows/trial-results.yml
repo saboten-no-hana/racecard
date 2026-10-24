@@ -1,0 +1,45 @@
+name: 試し（結果の取得）
+# result-card ブランチだけで動く一時的な試し（10/25 日曜）。main には入れない。確認が済んだら消す。
+# trial/rerun を変えて push した時だけ動く。1行目「until 13:00」または「final」。
+# 本番の races.json を使い、results.json は main には push せず、このブランチに保存する。
+on:
+  push:
+    branches: [result-card]
+    paths: ['trial/rerun']
+permissions:
+  contents: write
+concurrency:
+  group: trial-results
+  cancel-in-progress: false
+jobs:
+  trial:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install beautifulsoup4==4.12.3
+      - name: 本番の最新の出馬表を使う（コミットはしない）
+        run: |
+          git fetch -q origin main
+          git show origin/main:data/races.json > data/races.json
+      - name: 結果を取得（push しない）
+        run: |
+          L=$(head -1 trial/rerun)
+          case "$L" in
+            final) python3 tools/fetch_results.py --final ;;
+            until*) python3 tools/fetch_results.py --until "${L#until }" ;;
+          esac
+      - name: results.json をこのブランチに保存
+        if: ${{ !cancelled() }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git checkout -- data/races.json
+          git add data/results.json 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "試し: 結果を保存 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          git pull --rebase -q origin result-card
+          git push origin HEAD:result-card
