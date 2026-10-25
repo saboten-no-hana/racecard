@@ -7,6 +7,8 @@ name: 結果の取得
 #   am    毎日 07:40 JST 起動 → 13:00 まで。残りがあれば、終わる時に pm を手動実行の形で起動する（定期実行の遅れを受けない）
 #   pm    am から起動 → 18:00 まで
 #   final 毎日 19:07 JST。まだそろっていないレースのある場だけ、全レースまとめを1回ずつ読む（取りこぼしの仕上げ）
+#         正午より前に動いた時は前の日の分（10/25 は定期実行が4時間遅れて 23:15 に起動した）。
+#         手動実行で date を入れると、その日の分を取り直す（定期実行が来なかった日のため）
 # 1開催日のリクエスト数の見込み: 40〜45（10/25 の試しは発走13分後から読んで68回。18分後にして読み直しを減らした）
 # 時刻は UTC（日本時間 = UTC+9）。
 on:
@@ -20,6 +22,10 @@ on:
         type: choice
         options: [am, pm, final]
         default: final
+      date:
+        description: '仕上げで取り直す日（YYYY-MM-DD。空なら今日。正午より前は前の日）。定期実行が来なかった日の取り直し用'
+        required: false
+        default: ''
 permissions:
   contents: write
   actions: write   # am から pm を起動するため
@@ -43,7 +49,8 @@ jobs:
           case "${{ github.event.schedule }}${{ inputs.mode }}" in
             '40 22 * * *'|am) ARGS="--until 13:00 --pending-flag $RUNNER_TEMP/pending"; echo am > "$RUNNER_TEMP/mode" ;;
             pm) ARGS='--until 18:00' ;;
-            *) ARGS='--final' ;;
+            *) ARGS='--final'
+               if [ -n "${{ inputs.date }}" ]; then ARGS="--final --date ${{ inputs.date }}"; fi ;;
           esac
           python3 tools/fetch_results.py $ARGS --push
       - name: 午後の回を起動
