@@ -34,6 +34,11 @@ jobs:
     # 失敗（GitHub からメールが届く）になるのは: 出馬表トップの形式が読めない／木曜に週末の出馬表を取れなかった（年末年始を除く）
     steps:
       - uses: actions/checkout@v4
+      - name: 最新の main を取り込む
+        # 待機していた実行（手動で取った後に順番が来た定期実行など）は、起動が登録された時点の古いコミットで
+        # 動くため、古い data/ を見て同じ取得をやり直してしまう（10/22 に出馬表で起きた）。取得の前に最新にそろえる（10/26〜）
+        if: github.ref == 'refs/heads/main'
+        run: git fetch -q origin main && git reset -q --hard origin/main && git log --oneline -1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
