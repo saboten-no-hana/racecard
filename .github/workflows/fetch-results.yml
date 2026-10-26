@@ -3,24 +3,31 @@ name: 結果の取得
 #   クラブ馬の出るレースだけ、発走の18分後に競馬場ごとの全レースまとめを読み、そろうまで3分おきに読み直す（発走40分後まで）。
 #   結果が取れるたびに1レースごとにコミットして push（1時間に8回まで。超える分は次にまとめる）
 #   今日の開催が races.json にない日は JRA にアクセスせずに終わる（毎日起動しても平日は何もしない）
-# 起動（GitHub の定期実行は30〜50分遅れることがあるので、早めに起動してスクリプト側で各レースの時刻まで待つ）:
-#   am    毎日 07:40 JST 起動 → 13:00 まで。残りがあれば、終わる時に pm を手動実行の形で起動する（定期実行の遅れを受けない）
-#   pm    am から起動 → 18:00 まで
+# 起動（GitHub の定期実行は30〜50分、ときに数時間遅れ、抜けることもあるので、何回かに分けて起動する。10/26〜）:
+#   auto  07:40 と、予備の 09:20・11:20・13:20・15:20。どの回も「その日の残りのレース」を取る（午前・午後の区別はない）。
+#         1回は起動から5時間半か 18:00 まで。時間切れで残りがあれば、終わる時に次の回を手動実行の形で起動する（定期実行の遅れを受けない）。
+#         同じグループの実行は1つずつ順に動き、待っている実行は新しい待ちに置き換えられる。どの回が残っても同じ仕事をするので、
+#         予備の回が来ても取得済みのレースは読まず、何もなければ JRA にアクセスせずに数秒で終わる
 #   final 毎日 19:07 JST。まだそろっていないレースのある場だけ、全レースまとめを1回ずつ読む（取りこぼしの仕上げ）
 #         正午より前に動いた時は前の日の分（10/25 は定期実行が4時間遅れて 23:15 に起動した）。
 #         手動実行で date を入れると、その日の分を取り直す（定期実行が来なかった日のため）
-# 1開催日のリクエスト数の見込み: 40〜45（10/25 の試しは発走13分後から読んで68回。18分後にして読み直しを減らした）
+# 1開催日のリクエスト数の見込み: 40〜50（10/25 の試しは発走13分後から読んで68回。18分後にして読み直しを減らした。
+#   回が変わるたびに結果トップ・開催のページを読み直すので、1回あたり最大4ほど増える）
 # 時刻は UTC（日本時間 = UTC+9）。
 on:
   schedule:
-    - cron: '40 22 * * *'   # 07:40 JST（UTC では前日）am
+    - cron: '40 22 * * *'   # 07:40 JST（UTC では前日）auto
+    - cron: '20 0 * * *'    # 09:20 JST auto（予備）
+    - cron: '20 2 * * *'    # 11:20 JST auto（予備）
+    - cron: '20 4 * * *'    # 13:20 JST auto（予備）
+    - cron: '20 6 * * *'    # 15:20 JST auto（予備）
     - cron: '7 10 * * *'    # 19:07 JST final
   workflow_dispatch:
     inputs:
       mode:
-        description: '取得の仕方（am=午前の回／pm=午後の回／final=仕上げ）'
+        description: '取得の仕方（final=仕上げ／auto=その日の残りのレースを順に取る）'
         type: choice
-        options: [am, pm, final]
+        options: [final, auto]
         default: final
       date:
         description: '仕上げで取り直す日（YYYY-MM-DD。空なら今日。正午より前は前の日）。定期実行が来なかった日の取り直し用'
@@ -28,7 +35,7 @@ on:
         default: ''
 permissions:
   contents: write
-  actions: write   # am から pm を起動するため
+  actions: write   # 時間切れの時に次の回を起動するため
 concurrency:
   group: fetch-results
   cancel-in-progress: false
@@ -48,26 +55,30 @@ jobs:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3
       - name: 結果を取得（1レースごとにコミットして push）
+        env:
+          SCHED: ${{ github.event.schedule }}
+          MODE: ${{ inputs.mode }}
+          DATE: ${{ inputs.date }}   # 手動実行の入力はシェルに直接埋め込まず、環境変数で渡す（10/26〜）
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          case "${{ github.event.schedule }}${{ inputs.mode }}" in
-            '40 22 * * *'|am) ARGS="--until 13:00 --pending-flag $RUNNER_TEMP/pending"; echo am > "$RUNNER_TEMP/mode" ;;
-            pm) ARGS='--until 18:00' ;;
-            *) ARGS='--final'
-               if [ -n "${{ inputs.date }}" ]; then ARGS="--final --date ${{ inputs.date }}"; fi ;;
-          esac
-          python3 tools/fetch_results.py $ARGS --push
-      - name: 午後の回を起動
+          if [ "$SCHED" = '7 10 * * *' ] || { [ -z "$SCHED" ] && [ "$MODE" != auto ]; }; then
+            set -- --final
+            if [ -n "$DATE" ]; then set -- --final --date "$DATE"; fi
+          else
+            set -- --auto --pending-flag "$RUNNER_TEMP/pending"
+          fi
+          python3 tools/fetch_results.py "$@" --push
+      - name: 次の回を起動
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f "$RUNNER_TEMP/mode" ] && [ -f "$RUNNER_TEMP/pending" ]; then
-            echo "残り $(cat "$RUNNER_TEMP/pending") レース → 午後の回を起動"
+          if [ -f "$RUNNER_TEMP/pending" ]; then
+            echo "時間切れで残り $(cat "$RUNNER_TEMP/pending") レース → 次の回を起動"
             curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/fetch-results.yml/dispatches" \
-              -d '{"ref":"main","inputs":{"mode":"pm"}}'
+              -d '{"ref":"main","inputs":{"mode":"auto"}}'
           else
-            echo "午後の回は不要"
+            echo "次の回は不要"
           fi
