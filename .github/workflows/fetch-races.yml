@@ -61,5 +61,13 @@ jobs:
           git add data/races.json data/cache.json data/seen.json
           if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
           git commit -m "出馬表を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
-          git pull --rebase -q origin main
-          git push
+          # 土日の朝は「結果の取得」が数分おきに push しているので、取り込んでから push するまでの間に先を越されることがある。
+          # 1回で失敗にせず、取り込み直して3回まで push する（10/26〜。失敗すると翌日の馬番が翌朝まで公開されないため）
+          for i in 1 2 3; do
+            if git pull --rebase -q origin main && git push -q; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            echo "push に失敗（${i}回目）。取り込み直して再試行"
+            sleep $((i * 5))
+          done
+          echo "::error::races.json などの push に3回失敗した"
+          exit 1
