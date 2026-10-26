@@ -10,7 +10,12 @@ name: 結果の取得
 #         同じ場のレースが2つ続けて発走40分後まで何も載らなければ（開催中止など）、その回ではその場を読まない。
 #         同じグループの実行は1つずつ順に動き、待っている実行は新しい待ちに置き換えられる。どの回が残っても同じ仕事をするので、
 #         予備の回が来ても取得済みのレースは読まず、何もなければ JRA にアクセスせずに数秒で終わる
+#         0時台〜6時台にも起動を置く（10/26〜）。定期実行は2〜6時間遅れたり来なかったりするので、どれか1つが動けば、
+#         あとは時間切れの引き継ぎ（終わりの時刻まで待ってから次の回を起動。手動実行の形なので遅れない）で夕方までつながる。
+#         開催のない日は数秒で終わり、開催日も最初のレースまでは待つだけで JRA にはアクセスしない
 #   final 毎日 19:07 JST。まだそろっていないレースのある場だけ、全レースまとめを1回ずつ読む（取りこぼしの仕上げ）
+#         その日の最後の auto の回が、そろっていないレースを残して終わった時は、19:07 まで待つ仕上げの回を自分で起動する（10/26〜）。
+#         19:07 の定期実行は予備（先に仕上げが済んでいれば、そろっていないレースの場だけ読み直す）
 #         正午より前に動いた時は前の日の分（10/25 は定期実行が4時間遅れて 23:15 に起動した）。
 #         手動実行で date を入れると、その日の分を取り直す（定期実行が来なかった日のため）
 # 1開催日のリクエスト数の見込み: 40〜50（10/25 の試しは発走13分後から読んで68回。18分後にして読み直しを減らした。
@@ -18,6 +23,10 @@ name: 結果の取得
 # 時刻は UTC（日本時間 = UTC+9）。
 on:
   schedule:
+    - cron: '40 15 * * *'   # 00:40 JST（UTC では前日）auto（10/26〜。早めの起動。動いた回が夕方までつなぐ）
+    - cron: '40 17 * * *'   # 02:40 JST auto
+    - cron: '40 19 * * *'   # 04:40 JST auto
+    - cron: '40 21 * * *'   # 06:40 JST auto
     - cron: '40 22 * * *'   # 07:40 JST（UTC では前日）auto
     - cron: '20 0 * * *'    # 09:20 JST auto（予備）
     - cron: '20 2 * * *'    # 11:20 JST auto（予備）
@@ -37,6 +46,10 @@ on:
         default: ''
       after_error:
         description: '（自動で使う欄。手動では空のまま）前の回が読み取りの失敗で止まった時の代わりの回なら 1'
+        required: false
+        default: ''
+      wait_final:
+        description: '（自動で使う欄。手動では空のまま）その日の最後の回から起動した仕上げなら 1（19:07 まで待ってから読む）'
         required: false
         default: ''
 permissions:
@@ -66,12 +79,14 @@ jobs:
           MODE: ${{ inputs.mode }}
           DATE: ${{ inputs.date }}   # 手動実行の入力はシェルに直接埋め込まず、環境変数で渡す（10/26〜）
           AFTER_ERROR: ${{ inputs.after_error }}
+          WAIT_FINAL: ${{ inputs.wait_final }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           if [ "$SCHED" = '7 10 * * *' ] || { [ -z "$SCHED" ] && [ "$MODE" != auto ]; }; then
             set -- --final
             if [ -n "$DATE" ]; then set -- --final --date "$DATE"; fi
+            if [ "$WAIT_FINAL" = 1 ]; then set -- "$@" --start 19:07; fi
           else
             set -- --auto --pending-flag "$RUNNER_TEMP/pending"
             if [ "$AFTER_ERROR" = 1 ]; then set -- "$@" --after-error; fi
@@ -87,6 +102,10 @@ jobs:
             if [ "$(cat "$RUNNER_TEMP/pending")" = error ]; then
               echo "読み取りの失敗が続いて止まった → 代わりの回を1回だけ起動"
               BODY='{"ref":"main","inputs":{"mode":"auto","after_error":"1"}}'
+            elif [ "$(cat "$RUNNER_TEMP/pending")" = final ]; then
+              # その日の最後の回で、そろっていないレースが残った → 19:07 まで待つ仕上げの回を起動（10/26〜）
+              echo "そろっていないレースが残った → 19:07 まで待つ仕上げの回を起動"
+              BODY='{"ref":"main","inputs":{"mode":"final","wait_final":"1"}}'
             else
               echo "時間切れで残り $(cat "$RUNNER_TEMP/pending") レース → 次の回を起動"
               BODY='{"ref":"main","inputs":{"mode":"auto"}}'
