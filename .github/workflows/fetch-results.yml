@@ -6,6 +6,7 @@ name: 結果の取得
 # 起動（GitHub の定期実行は30〜50分、ときに数時間遅れ、抜けることもあるので、何回かに分けて起動する。10/26〜）:
 #   auto  07:40 と、予備の 09:20・11:20・13:20・15:20。どの回も「その日の残りのレース」を取る（午前・午後の区別はない）。
 #         1回は起動から5時間半か 18:00 まで。時間切れで残りがあれば、終わる時に次の回を手動実行の形で起動する（定期実行の遅れを受けない）。
+#         読み取りに失敗しても3分後に読み直し、3回続けて失敗したら止める。止まった時は代わりの回を1回だけ起動する（15分待ってから読む）。
 #         同じグループの実行は1つずつ順に動き、待っている実行は新しい待ちに置き換えられる。どの回が残っても同じ仕事をするので、
 #         予備の回が来ても取得済みのレースは読まず、何もなければ JRA にアクセスせずに数秒で終わる
 #   final 毎日 19:07 JST。まだそろっていないレースのある場だけ、全レースまとめを1回ずつ読む（取りこぼしの仕上げ）
@@ -31,6 +32,10 @@ on:
         default: final
       date:
         description: '仕上げで取り直す日（YYYY-MM-DD。空なら今日。正午より前は前の日）。定期実行が来なかった日の取り直し用'
+        required: false
+        default: ''
+      after_error:
+        description: '（自動で使う欄。手動では空のまま）前の回が読み取りの失敗で止まった時の代わりの回なら 1'
         required: false
         default: ''
 permissions:
@@ -59,6 +64,7 @@ jobs:
           SCHED: ${{ github.event.schedule }}
           MODE: ${{ inputs.mode }}
           DATE: ${{ inputs.date }}   # 手動実行の入力はシェルに直接埋め込まず、環境変数で渡す（10/26〜）
+          AFTER_ERROR: ${{ inputs.after_error }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
@@ -67,6 +73,7 @@ jobs:
             if [ -n "$DATE" ]; then set -- --final --date "$DATE"; fi
           else
             set -- --auto --pending-flag "$RUNNER_TEMP/pending"
+            if [ "$AFTER_ERROR" = 1 ]; then set -- "$@" --after-error; fi
           fi
           python3 tools/fetch_results.py "$@" --push
       - name: 次の回を起動
@@ -75,10 +82,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f "$RUNNER_TEMP/pending" ]; then
-            echo "時間切れで残り $(cat "$RUNNER_TEMP/pending") レース → 次の回を起動"
+            # 中身が error なら、読み取りの失敗が続いて止まった回の代わり（次の回は15分待ってから読む。その回がまた止まったら起動しない）
+            if [ "$(cat "$RUNNER_TEMP/pending")" = error ]; then
+              echo "読み取りの失敗が続いて止まった → 代わりの回を1回だけ起動"
+              BODY='{"ref":"main","inputs":{"mode":"auto","after_error":"1"}}'
+            else
+              echo "時間切れで残り $(cat "$RUNNER_TEMP/pending") レース → 次の回を起動"
+              BODY='{"ref":"main","inputs":{"mode":"auto"}}'
+            fi
             curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/fetch-results.yml/dispatches" \
-              -d '{"ref":"main","inputs":{"mode":"auto"}}'
+              -d "$BODY"
           else
             echo "次の回は不要"
           fi
