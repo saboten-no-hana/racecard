@@ -43,7 +43,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3
+      - name: コミットの名前を設定
+        # 出走確定を見つけた時に、取得の途中で「集計中」の表示（data/status.json）を push するため（10/29〜）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
       - name: 出馬表を取得
+        env:
+          RACECARD_PUSH_STATUS: ${{ github.ref == 'refs/heads/main' && '1' || '' }}
         run: |
           case "${{ github.event.schedule }}${{ inputs.mode }}" in
             '45 4 * * *'|confirm)
@@ -59,6 +66,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add data/races.json data/cache.json data/seen.json
+          [ -f data/status.json ] && git add data/status.json   # 集計中の表示（終わったら done にしている）
           if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
           git commit -m "出馬表を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
           # 土日の朝は「結果の取得」が数分おきに push しているので、取り込んでから push するまでの間に先を越されることがある。
