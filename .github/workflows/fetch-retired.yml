@@ -1,0 +1,48 @@
+name: 登録抹消の取得
+# JRAの「競走馬登録・抹消一覧」から、登録抹消になった馬の 馬名・抹消日・父・母 を集めて data/retired.json を更新する（10/29〜）。
+# 出走カードは、★の馬（出走待ちの馬名も）を馬名で照合して、登録抹消になった馬をバナーで知らせる（★を外すのは利用者）。
+# 抹消一覧の掲載は通常、月曜11時頃と木曜18時頃。その40分後に起動する（急ぐものではないので、定期実行の遅れはそのまま待つ）。
+# 1回あたりのリクエストは 入口1＋新しい抹消日のページ（ふだん3〜5。初回は一覧の約1か月分＝30前後）。時刻はUTC（日本時間 = UTC+9）。
+on:
+  schedule:
+    - cron: '40 2 * * 1'   # 月 11:40 JST
+    - cron: '40 9 * * 4'   # 木 18:40 JST
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: fetch-retired
+  cancel-in-progress: false
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # 失敗（GitHub からメールが届く）になるのは: 入口・抹消日のページの形式が読めない／通信エラーで読めなかった
+    steps:
+      - uses: actions/checkout@v4
+      - name: 最新の main を取り込む
+        if: github.ref == 'refs/heads/main'
+        run: git fetch -q origin main && git reset -q --hard origin/main && git log --oneline -1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install beautifulsoup4==4.12.3
+      - name: 登録抹消を取得
+        run: python3 tools/fetch_retired.py
+      - name: Commit
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data/retired.json
+          if git diff --cached --quiet; then echo "変更なし"; exit 0; fi
+          git commit -m "登録抹消を更新 $(TZ=Asia/Tokyo date '+%m/%d %H:%M')"
+          # 出馬表・結果の取得の push と重なることがあるので、取り込み直して3回まで push する
+          for i in 1 2 3; do
+            if git pull --rebase -q origin main && git push -q; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            echo "push に失敗（${i}回目）。取り込み直して再試行"
+            sleep $((i * 5))
+          done
+          echo "::error::retired.json の push に3回失敗した"
+          exit 1
