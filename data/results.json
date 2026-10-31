@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-10-31T10:11+09:00",
+ "updated": "2026-10-31T10:23+09:00",
  "days": [
   {
    "date": "2026-10-31",
@@ -38,6 +38,35 @@
    "last3f": "40.5",
    "hweight": "480(-2)",
    "pop": "11",
+   "runners": 16
+  },
+  {
+   "key": "2026-10-31|京都|1|2024103364",
+   "horseId": "2024103364",
+   "name": "ランズエンド",
+   "clubId": "green",
+   "date": "2026-10-31",
+   "venue": "京都",
+   "r": 1,
+   "time": "10:05",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1400,
+   "status": "",
+   "finish": "3",
+   "waku": "2",
+   "umaban": "4",
+   "sexAge": "牡2",
+   "weight": "56.0",
+   "jockey": "富田 暁",
+   "rtime": "1:25.3",
+   "margin": "６",
+   "corner": "9-8",
+   "last3f": "37.5",
+   "hweight": "478(+8)",
+   "pop": "13",
    "runners": 16
   }
  ]
