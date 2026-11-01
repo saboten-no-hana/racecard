@@ -1,9 +1,16 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-10-31T16:43+09:00",
+ "updated": "2026-11-01T10:03+09:00",
  "days": [
   {
    "date": "2026-10-31",
+   "venues": [
+    "東京",
+    "京都"
+   ]
+  },
+  {
+   "date": "2026-11-01",
    "venues": [
     "東京",
     "京都"
@@ -1692,6 +1699,64 @@
    "hweight": "482(+12)",
    "pop": "5",
    "runners": 18
+  },
+  {
+   "key": "2026-11-01|京都|1|2024105938",
+   "horseId": "2024105938",
+   "name": "ダヌラーサナ",
+   "clubId": "shadai",
+   "date": "2026-11-01",
+   "venue": "京都",
+   "r": 1,
+   "time": "09:45",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1400,
+   "status": "",
+   "finish": "10",
+   "waku": "3",
+   "umaban": "3",
+   "sexAge": "牝2",
+   "weight": "54.0",
+   "jockey": "☆ 田山 旺佑",
+   "rtime": "1:28.2",
+   "margin": "２ 1/2",
+   "corner": "8-10",
+   "last3f": "39.7",
+   "hweight": "476(+6)",
+   "pop": "5",
+   "runners": 11
+  },
+  {
+   "key": "2026-11-01|京都|1|2024106051",
+   "horseId": "2024106051",
+   "name": "ルージュミスティカ",
+   "clubId": "tokyo",
+   "date": "2026-11-01",
+   "venue": "京都",
+   "r": 1,
+   "time": "09:45",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1400,
+   "status": "",
+   "finish": "1",
+   "waku": "6",
+   "umaban": "6",
+   "sexAge": "牝2",
+   "weight": "55.0",
+   "jockey": "武 豊",
+   "rtime": "1:25.7",
+   "margin": "",
+   "corner": "5-3",
+   "last3f": "37.6",
+   "hweight": "468(-4)",
+   "pop": "1",
+   "runners": 11
   }
  ]
 }
