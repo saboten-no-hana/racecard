@@ -348,6 +348,29 @@ function drawDay(ctx,x,y,w,dh,e,T){
   cx+=s*.5; ctx.fillStyle=T.rowLine; ctx.fillRect(cx,base-s*.33,Math.max(0,x+w-cx),2);
 }
 
+/* 右の欄（11/05〜、私の指定）: 行の右に空きがある時は、発走時刻・距離・斤量・騎手を行の右の欄に3段で置く（3段とも同じ大きさ・同じ色）。
+   欄の左端・幅・文字の大きさはカード全体でそろえる（行ごとに決めると騎手名の長さで欄がずれて見えるため）。
+   馬名の場所を優先し、欄の文字を85%まで縮めても入らない時は null を返す（カード全体を3行目の形で描く。行ごとに混ぜない）。
+   縦横・頭数・列数では分けず、行の右の空きで決める（11/05、私の指定）。index.html が呼び、結果を S._info に入れて drawRow に渡す。結果カードは使わない */
+function infoPlan(ctx,hs,h,w,S){
+  const ip=h*.11, tx0=ip+h*.5+(S._anyUma?ip*.45+h*.44:0)+ip*.8+h*.72+ip*.8; /* drawRow の文字の始まり（行の左端から） */
+  const photoW=hs.some(x=>x.photo)?(h-ip*1.4)+ip*.8:0, avail=w-ip-photoW-tx0;
+  const s0=Math.round(clamp(h*.13,9,28)), wt=S.boldInfo?700:500, showW=showKg(S);
+  const m=(t,weight,size)=>{ if(!t) return 0; ctx.font=`${weight} ${size}px ${F.body}`; return ctx.measureText(t).width; };
+  let pw=0, leftW=0;
+  hs.forEach(hr=>{ const l=infoLines(hr,'',showW);
+    pw=Math.max(pw,...l.map(t=>m(t,wt,s0)));
+    leftW=Math.max(leftW,m(hr.name,900,Math.round(clamp(h*.25,11,52))),m(hr.raceName,700,Math.round(clamp(h*.125,8,26)*1.08))); });
+  /* 馬名・レース名が今の大きさのまま入り、欄の文字が今の3行目（行の高さの10.8%）より小さくならない時だけ右に置く */
+  const sep=ip*1.5, room=avail-sep*2-Math.min(leftW,avail), k=pw?Math.min(1,room/pw):1;
+  if(k<.85) return null;
+  return {s:Math.round(s0*k), pw:pw*k, sep, photoW};
+}
+/* 右の欄の3段。性齢はクラブ名の右に入らない時だけ渡され、斤量の前に置く */
+function infoLines(hr,awLine,showW){
+  const kg=showW?kgText(hr.weight):'';
+  return [hr.time?hr.time+' 発走':'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), [awLine,kg,hr.jockey].filter(Boolean).join('　')];
+}
 function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   ctx.fillStyle=T.row; rr(ctx,x,y,w,h,h*.12); ctx.fill(); ctx.strokeStyle=T.rowLine; ctx.lineWidth=1.5; ctx.stroke();
   const ip=h*.11;
@@ -387,6 +410,8 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   const img=hr.photo&&imgs[hr.photo];
   if(img){ const ps=h-ip*1.4, px=right-ps, py=y+(h-ps)/2; const sw=img.naturalWidth, sh=img.naturalHeight, m=Math.min(sw,sh);
     ctx.save(); rr(ctx,px,py,ps,ps,h*.08); ctx.clip(); ctx.drawImage(img,(sw-m)/2,(sh-m)/2,m,m,px,py,ps,ps); ctx.restore(); right=px-ip*.8; }
+  const P=S._info; let infoX=0; /* 右の欄 */
+  if(P){ const pr=x+w-ip-P.photoW; infoX=pr-P.pw; right=Math.min(right,pr)-P.pw-P.sep*2; }
   const label=scr||((S.showKuchi && hr.kuchi && hr.kuchi!=='none')?{win:'口取り 当選',wait:'口取り 抽選待ち',lose:'口取り 落選'}[hr.kuchi]:'');
   let inlineBadge=false;
   const paintBadge=(px,py,pw,ph,fs)=>{ rr(ctx,px,py,pw,ph,ph/2);
@@ -397,45 +422,53 @@ function drawRow(ctx,x,y,w,h,hr,T,S,imgs){
   if(label){
     const fs=Math.round(clamp(h*.115,11,22)); ctx.font=`900 ${fs}px ${F.body}`; const lw=ctx.measureText(label).width;
     const pw=lw+fs*1.3, ph=fs*1.9;
-    if(right-pw-tx >= w*.5){ paintBadge(right-pw,y+(h-ph)/2,pw,ph,fs); right=right-pw-ip*.7; } else inlineBadge=true;
+    if(!P && right-pw-tx >= w*.5){ paintBadge(right-pw,y+(h-ph)/2,pw,ph,fs); right=right-pw-ip*.7; } else inlineBadge=true;
   }
   const tw=Math.max(40,right-tx);
-  const sA=clamp(h*.105,8,21), sB=clamp(h*.25,11,52), sC=clamp(h*.125,8,26), sD=clamp(h*.108,8,22), g=h*.035;
-  const chipH=sA*1.55; const block=chipH+g+sB+g+sC+g*.7+sD; let cy=y+(h-block)/2;
+  const sA=clamp(h*.105,8,21), sB=clamp(h*.25,11,52), sC=clamp(h*.125,8,26)*(P?1.08:1), sD=clamp(h*.108,8,22), g=h*.035;
+  const chipH=sA*1.55; const block=P?chipH+g+sB+g*1.2+sC:chipH+g+sB+g+sC+g*.7+sD; let cy=y+(h-block)/2;
   const club=clubLabel(hr);
   const inlineB=(x0)=>{ const fs=Math.round(sA); ctx.font=`900 ${fs}px ${F.body}`; const pw=ctx.measureText(label).width+fs*1.2; if(x0+pw<=right){ paintBadge(x0,cy,pw,chipH,fs); return x0+pw; } return 0; };
   let cx0=tx, chipEnd=tx;
   if(inlineBadge&&scr){ /* 取消・除外は必ず見せたいので、狭い時はクラブ名より前に置く */
     const fs=Math.round(sA); ctx.font=`900 ${fs}px ${F.body}`; const pw=ctx.measureText(label).width+fs*1.2; paintBadge(tx,cy,pw,chipH,fs); cx0=tx+pw+sA*.6; chipEnd=cx0; }
-  /* 性齢・斤量（10/19〜、設定で切替）: 性齢はクラブ名の右、斤量は3行目の騎手名の前（10/22〜、私の指定。3行目の項目の区切りは「 / 」をやめて全角スペース。以前は「牡4 57kg」をクラブ名の右）。
+  /* 性齢・斤量（10/19〜、設定で切替。11/06〜 性齢 showAgeWeight と斤量 showWeight を別の設定に）: 性齢はクラブ名の右、斤量は3行目の騎手名の前（10/22〜、私の指定。3行目の項目の区切りは「 / 」をやめて全角スペース。以前は「牡4 57kg」をクラブ名の右）。
      性齢の場所が足りなければクラブ名を少し（15%まで）縮める。それでも入らない時（狭い行で口取りバッジもある時など）だけ3行目の最後 */
-  const showAw=S.showAgeWeight!==false, kg=showAw?kgText(hr.weight):'';
+  const showAw=S.showAgeWeight!==false, kg=showKg(S)?kgText(hr.weight):'';
   const aw=showAw?(hr.sexAge||''):''; let awLine='';
   const awFs=Math.round(sA); ctx.font=`700 ${awFs}px ${F.body}`; const awW=aw?ctx.measureText(aw).width:0, awGap=sA*.6;
   const kuchiInline=inlineBadge&&!scr&&label;
   /* 狭い行の口取りバッジ: クラブ名の右に必ず入るよう、その分クラブ名を縮める（10/19 修正。以前は入る時だけ描いていて、縦長2列ではほぼ出ていなかった） */
   let kbw=0; if(kuchiInline){ ctx.font=`900 ${Math.round(sA)}px ${F.body}`; kbw=ctx.measureText(label).width+Math.round(sA)*1.2; }
-  let awInChip=!!aw&&!kuchiInline;
+  /* 並びはクラブ名 → 性齢 → 口取りバッジ（11/06〜、私の指定。以前はクラブ名 → 口取りバッジ → 性齢） */
+  let awInChip=!!aw;
+  const kbGap=kbw?kbw+sA*.6:0;
   if(club){
-    const textMax=Math.max(20,tx+tw-cx0-sA*1.15-(kbw?kbw+sA*.6:0)), roomWithAw=textMax-awW-awGap;
+    const textMax=Math.max(20,tx+tw-cx0-sA*1.15-kbGap), roomWithAw=textMax-awW-awGap;
     if(awInChip){ ctx.font=`700 ${Math.round(sA)}px ${F.body}`; if(ctx.measureText(club).width*.85>roomWithAw) awInChip=false; }
     const f=fit(ctx,club,700,F.body,sA,awInChip?Math.max(20,roomWithAw):textMax); const cw=ctx.measureText(f.t).width+sA*1.1;
     rr(ctx,cx0,cy,cw,chipH,chipH*.25); ctx.fillStyle=T.chipBg; ctx.fill(); ctx.fillStyle=T.chipFg; ctx.fillText(f.t,cx0+sA*.55,cy+chipH*.5+f.s*.36);
-    chipEnd=cx0+cw; if(kuchiInline) chipEnd=inlineB(cx0+cw+sA*.6)||chipEnd; }
-  else if(kuchiInline) chipEnd=inlineB(tx)||tx;
+    chipEnd=cx0+cw; }
   if(aw){ const ax=chipEnd>tx?chipEnd+awGap:tx;
-    if(ax+awW<=right){ ctx.font=`700 ${awFs}px ${F.body}`; ctx.fillStyle=scr?T.sub:T.fg; ctx.globalAlpha=scr?1:.85; ctx.fillText(aw,ax,cy+chipH*.5+awFs*.36); ctx.globalAlpha=1; }
+    if(ax+awW+kbGap<=right){ ctx.font=`700 ${awFs}px ${F.body}`; ctx.fillStyle=scr?T.sub:T.fg; ctx.globalAlpha=scr?1:.85; ctx.fillText(aw,ax,cy+chipH*.5+awFs*.36); ctx.globalAlpha=1; chipEnd=ax+awW; }
     else awLine=aw; }
+  if(kuchiInline) chipEnd=inlineB(chipEnd>tx?chipEnd+sA*.6:tx)||chipEnd;
   cy+=chipH+g;
   /* 馬名は省略しない（10/30〜、結果カードと同じ drawNameNoCut。以前は入らない時「…」で切っていた） */
   const nm=drawNameNoCut(ctx,hr.name||'（馬名）',sB,tx,cy+sB*.86,tw,scr?T.sub:T.fg);
   if(scr){ ctx.fillRect(tx,cy+sB*.86-nm.s*.34,nm.w,Math.max(2,nm.s*.07)); }
-  cy+=sB+g;
+  cy+=sB+g*(P?1.2:1);
   const lc=hr.raceName||'';
   const c=fit(ctx,lc,700,F.body,sC,tw); ctx.fillStyle=T.fg; ctx.fillText(c.t,tx,cy+sC*.86); cy+=sC+g*.7;
   /* 性齢を3行目に回した時は、距離と斤量の間に置き（10/22、私の指定）、「発走」を省いて文字が小さくなりすぎないようにする */
+  const wt=S.boldInfo?700:500; /* 太字（11/05〜、設定 boldInfo・既定はオフ） */
+  if(P){ /* 右の欄: 3段とも同じ大きさ・同じ色。左に細い区切り線 */
+    const L3=infoLines(hr,awLine,showKg(S)), lh=P.s*1.45, b0=y+h/2-lh+P.s*.36;
+    ctx.fillStyle=T.rowLine; ctx.fillRect(infoX-P.sep,y+h*.22,1.5,h*.56);
+    ctx.fillStyle=T.sub; L3.forEach((t,i)=>{ if(!t) return; const f=fit(ctx,t,wt,F.body,P.s,P.pw+1); ctx.fillText(f.t,infoX,b0+lh*i); });
+    return; }
   const ld=[hr.time?hr.time+(awLine?'':' 発走'):'', (hr.surface||'')+(hr.dist?hr.dist+'m':''), awLine, kg, hr.jockey].filter(Boolean).join('　');
-  const d=fit(ctx,ld,500,F.body,sD,tw); ctx.fillStyle=T.sub; ctx.fillText(d.t,tx,cy+sD*.86);
+  const d=fit(ctx,ld,wt,F.body,sD,tw); ctx.fillStyle=T.sub; ctx.fillText(d.t,tx,cy+sD*.86);
 }
 
 /* 馬名を省略せずに描く（結果カードから移した。10/30〜出走カードも）: 72%まで縮め、それでも入らなければ横に詰める。戻り値 {w: 描いた幅, s: 文字の大きさ} */
@@ -463,6 +496,8 @@ function drawNamedOnSilks(ctx,sx,sy,ss,fsBase,T,dim){
   drawNamedBadge(ctx,x,mid,fs,T); ctx.globalAlpha=1; }
 
 /* 斤量の表示: 57.0 → 57kg、57.5 → 57.5kg */
+/* 斤量を載せるか（11/06〜、設定 showWeight。性齢の showAgeWeight と分けた。未設定の時は以前の「性齢・斤量を載せる」＝showAgeWeight に従う） */
+function showKg(S){ return S.showWeight!==undefined?S.showWeight!==false:S.showAgeWeight!==false; }
 function kgText(w){ const n=parseFloat(String(w||'').replace(/[^\d.]/g,'')); return n?(Number.isInteger(n)?n:n.toFixed(1))+'kg':''; }
 function rangeText(horses){
   const ds=horses.map(h=>h.date).filter(Boolean).sort(); if(!ds.length) return '';
@@ -476,5 +511,5 @@ function rangeText(horses){
 const imgCache={};
 function loadImg(src){ if(imgCache[src]) return Promise.resolve(imgCache[src]); return new Promise(r=>{ const i=new Image(); i.onload=()=>{imgCache[src]=i;r(i);}; i.onerror=()=>r(null); i.src=src; }); }
 
-window.RCCore = { IPA, F, CLUBS, COLORS, clubById, SIZES, WD, WD_EN, WAKU, DEFAULT_SILKS, THEMES, DEFAULT_CUSTOM, hexRgb, rgbHex, mix, luminance, customTheme, pad2, STATUS_LABEL, runCount, clamp, parseDate, clubLabel, silksSpec, silksImgSrc, silksHex, rr, ls, fit, mulberry, SHAPES, OUTLINE, BODY_CLIP, SEAM, SLEEVE_AXIS, SPAN_KEYS, ALIAS, ARM_FROM_REF, _p2d, p2d, p2dAll, star, drawRefPattern, drawSleeveMotif, drawSilks, drawSilksImg, drawBg, VENUE_ORDER, EAST_MAIN, WEST_MAIN, num, venueRanker, entriesOf, GAP, DAY, VEN, colUnits, bandsOf, ROW_PREF, headerTop, flowCols, layoutOf, bandUnits, splitRows, drawVenue, drawDay, drawRow, drawNameNoCut, NAMED_LABEL, namedBadgeW, drawNamedBadge, drawNamedOnSilks, kgText, rangeText, imgCache, loadImg };
+window.RCCore = { IPA, F, CLUBS, COLORS, clubById, SIZES, WD, WD_EN, WAKU, DEFAULT_SILKS, THEMES, DEFAULT_CUSTOM, hexRgb, rgbHex, mix, luminance, customTheme, pad2, STATUS_LABEL, runCount, clamp, parseDate, clubLabel, silksSpec, silksImgSrc, silksHex, rr, ls, fit, mulberry, SHAPES, OUTLINE, BODY_CLIP, SEAM, SLEEVE_AXIS, SPAN_KEYS, ALIAS, ARM_FROM_REF, _p2d, p2d, p2dAll, star, drawRefPattern, drawSleeveMotif, drawSilks, drawSilksImg, drawBg, VENUE_ORDER, EAST_MAIN, WEST_MAIN, num, venueRanker, entriesOf, GAP, DAY, VEN, colUnits, bandsOf, ROW_PREF, headerTop, flowCols, layoutOf, bandUnits, splitRows, drawVenue, drawDay, drawRow, infoPlan, infoLines, drawNameNoCut, showKg, NAMED_LABEL, namedBadgeW, drawNamedBadge, drawNamedOnSilks, kgText, rangeText, imgCache, loadImg };
 })();
