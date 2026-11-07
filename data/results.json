@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-07T12:53+09:00",
+ "updated": "2026-11-07T13:03+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -1025,6 +1025,35 @@
    "last3f": "37.5",
    "hweight": "470(+6)",
    "pop": "3",
+   "runners": 16
+  },
+  {
+   "key": "2026-11-07|東京|6|2024102968",
+   "horseId": "2024102968",
+   "name": "ラマナス",
+   "clubId": "normandy",
+   "date": "2026-11-07",
+   "venue": "東京",
+   "r": 6,
+   "time": "12:45",
+   "raceName": "メイクデビュー東京",
+   "grade": "",
+   "cls": "新馬",
+   "surface": "ダ",
+   "dist": 1300,
+   "status": "",
+   "finish": "8",
+   "waku": "6",
+   "umaban": "11",
+   "sexAge": "牡2",
+   "weight": "56.0",
+   "jockey": "菅原 明良",
+   "rtime": "1:20.2",
+   "margin": "２ 1/2",
+   "corner": "12-12",
+   "last3f": "36.8",
+   "hweight": "462(初出走)",
+   "pop": "5",
    "runners": 16
   },
   {
