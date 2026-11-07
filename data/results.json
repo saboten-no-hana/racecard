@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-07T11:03+09:00",
+ "updated": "2026-11-07T11:06+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -123,7 +123,7 @@
    "rtime": "1:46.3",
    "margin": "クビ",
    "corner": "4-4-2-3",
-   "last3f": "",
+   "last3f": "38.7",
    "hweight": "476(+4)",
    "pop": "8",
    "runners": 15
@@ -152,7 +152,7 @@
    "rtime": "1:49.6",
    "margin": "１",
    "corner": "14-14-15-15",
-   "last3f": "",
+   "last3f": "39.8",
    "hweight": "442(+6)",
    "pop": "14",
    "runners": 15
@@ -181,7 +181,7 @@
    "rtime": "1:47.2",
    "margin": "１ 1/2",
    "corner": "7-7-7-8",
-   "last3f": "",
+   "last3f": "39.3",
    "hweight": "462(0)",
    "pop": "2",
    "runners": 15
@@ -210,7 +210,7 @@
    "rtime": "1:46.6",
    "margin": "１ 3/4",
    "corner": "2-1-1-1",
-   "last3f": "",
+   "last3f": "39.3",
    "hweight": "444(+6)",
    "pop": "5",
    "runners": 15
@@ -239,7 +239,7 @@
    "rtime": "1:45.7",
    "margin": "",
    "corner": "2-3-2-2",
-   "last3f": "",
+   "last3f": "38.2",
    "hweight": "450(+6)",
    "pop": "1",
    "runners": 15
