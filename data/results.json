@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-07T11:06+09:00",
+ "updated": "2026-11-07T11:23+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -448,6 +448,35 @@
    "runners": 13
   },
   {
+   "key": "2026-11-07|東京|3|2024106505",
+   "horseId": "2024106505",
+   "name": "エターナルバラード",
+   "clubId": "silk",
+   "date": "2026-11-07",
+   "venue": "東京",
+   "r": 3,
+   "time": "10:55",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "芝",
+   "dist": 1400,
+   "status": "",
+   "finish": "8",
+   "waku": "4",
+   "umaban": "7",
+   "sexAge": "牝2",
+   "weight": "55.0",
+   "jockey": "C.デムーロ",
+   "rtime": "1:23.2",
+   "margin": "クビ",
+   "corner": "4-6",
+   "last3f": "34.7",
+   "hweight": "452(-14)",
+   "pop": "3",
+   "runners": 16
+  },
+  {
    "key": "2026-11-07|京都|1|2024102322",
    "horseId": "2024102322",
    "name": "フェリシタル",
@@ -620,6 +649,35 @@
    "hweight": "418(-2)",
    "pop": "14",
    "runners": 15
+  },
+  {
+   "key": "2026-11-07|京都|3|2024110015",
+   "horseId": "2024110015",
+   "name": "ノーブルセプター",
+   "clubId": "normandy",
+   "date": "2026-11-07",
+   "venue": "京都",
+   "r": 3,
+   "time": "11:05",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1800,
+   "status": "",
+   "finish": "1",
+   "waku": "4",
+   "umaban": "4",
+   "sexAge": "牡2",
+   "weight": "56.0",
+   "jockey": "酒井 学",
+   "rtime": "1:52.7",
+   "margin": "",
+   "corner": "2-1-1-1",
+   "last3f": "38.2",
+   "hweight": "470(+2)",
+   "pop": "7",
+   "runners": 13
   }
  ]
 }
