@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-08T15:23+09:00",
+ "updated": "2026-11-08T15:26+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -5357,6 +5357,35 @@
    "runners": 15
   },
   {
+   "key": "2026-11-08|京都|10|2022105783",
+   "horseId": "2022105783",
+   "name": "ネーヴェフレスカ",
+   "clubId": "carrot",
+   "date": "2026-11-08",
+   "venue": "京都",
+   "r": 10,
+   "time": "15:05",
+   "raceName": "清水ステークス",
+   "grade": "",
+   "cls": "3勝クラス",
+   "surface": "芝",
+   "dist": 1600,
+   "status": "",
+   "finish": "10",
+   "waku": "5",
+   "umaban": "5",
+   "sexAge": "牝4",
+   "weight": "56.0",
+   "jockey": "C.デムーロ",
+   "rtime": "1:36.2",
+   "margin": "クビ",
+   "corner": "7-7",
+   "last3f": "33.5",
+   "hweight": "470(+26)",
+   "pop": "8",
+   "runners": 10
+  },
+  {
    "key": "2026-11-08|京都|10|2023103783",
    "horseId": "2023103783",
    "name": "ヴォーカライズ",
@@ -5377,13 +5406,13 @@
    "sexAge": "牡3",
    "weight": "57.0",
    "jockey": "斎藤 新",
-   "rtime": "",
+   "rtime": "1:35.9",
    "margin": "１",
-   "corner": "",
-   "last3f": "",
+   "corner": "3-4",
+   "last3f": "33.5",
    "hweight": "502(+6)",
    "pop": "4",
-   "runners": 5
+   "runners": 10
   }
  ]
 }
