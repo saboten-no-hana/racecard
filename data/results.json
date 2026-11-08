@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-08T10:03+09:00",
+ "updated": "2026-11-08T10:23+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -3470,6 +3470,35 @@
    "hweight": "410(-6)",
    "pop": "6",
    "runners": 16
+  },
+  {
+   "key": "2026-11-08|京都|1|2024103845",
+   "horseId": "2024103845",
+   "name": "レグルスロウ",
+   "clubId": "normandy",
+   "date": "2026-11-08",
+   "venue": "京都",
+   "r": 1,
+   "time": "10:05",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1200,
+   "status": "",
+   "finish": "3",
+   "waku": "7",
+   "umaban": "12",
+   "sexAge": "牡2",
+   "weight": "56.0",
+   "jockey": "浜中 俊",
+   "rtime": "1:13.5",
+   "margin": "１／２",
+   "corner": "3-3",
+   "last3f": "37.3",
+   "hweight": "430(+2)",
+   "pop": "7",
+   "runners": 14
   }
  ]
 }
