@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-08T14:18+09:00",
+ "updated": "2026-11-08T14:21+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -4826,13 +4826,13 @@
    "sexAge": "牡7",
    "weight": "58.0",
    "jockey": "幸 英明",
-   "rtime": "",
+   "rtime": "2:24.3",
    "margin": "同着",
    "corner": "5-5-7-7",
    "last3f": "",
    "hweight": "524(+4)",
    "pop": "5",
-   "runners": 5
+   "runners": 9
   },
   {
    "key": "2026-11-08|京都|8|2022104624",
@@ -4855,13 +4855,13 @@
    "sexAge": "牝4",
    "weight": "56.0",
    "jockey": "川田 将雅",
-   "rtime": "",
+   "rtime": "2:24.3",
    "margin": "クビ",
    "corner": "6-5-3-3",
    "last3f": "",
    "hweight": "406(-6)",
    "pop": "2",
-   "runners": 5
+   "runners": 9
   },
   {
    "key": "2026-11-08|京都|8|2022105290",
@@ -4884,13 +4884,71 @@
    "sexAge": "牡4",
    "weight": "58.0",
    "jockey": "武 豊",
-   "rtime": "",
+   "rtime": "2:24.3",
    "margin": "アタマ",
    "corner": "8-9-9-7",
    "last3f": "",
    "hweight": "472(+8)",
    "pop": "3",
-   "runners": 5
+   "runners": 9
+  },
+  {
+   "key": "2026-11-08|京都|8|2022105577",
+   "horseId": "2022105577",
+   "name": "ランツフート",
+   "clubId": "shadai",
+   "date": "2026-11-08",
+   "venue": "京都",
+   "r": 8,
+   "time": "14:00",
+   "raceName": "3歳以上2勝クラス",
+   "grade": "",
+   "cls": "2勝クラス",
+   "surface": "芝",
+   "dist": 2400,
+   "status": "",
+   "finish": "6",
+   "waku": "8",
+   "umaban": "9",
+   "sexAge": "せん4",
+   "weight": "58.0",
+   "jockey": "M.デムーロ",
+   "rtime": "2:24.9",
+   "margin": "３／４",
+   "corner": "7-7-5-4",
+   "last3f": "",
+   "hweight": "460(-6)",
+   "pop": "4",
+   "runners": 9
+  },
+  {
+   "key": "2026-11-08|京都|8|2022107084",
+   "horseId": "2022107084",
+   "name": "ウインヘリオドール",
+   "clubId": "win",
+   "date": "2026-11-08",
+   "venue": "京都",
+   "r": 8,
+   "time": "14:00",
+   "raceName": "3歳以上2勝クラス",
+   "grade": "",
+   "cls": "2勝クラス",
+   "surface": "芝",
+   "dist": 2400,
+   "status": "",
+   "finish": "7",
+   "waku": "4",
+   "umaban": "4",
+   "sexAge": "牡4",
+   "weight": "58.0",
+   "jockey": "松若 風馬",
+   "rtime": "2:25.1",
+   "margin": "１",
+   "corner": "2-2-2-2",
+   "last3f": "",
+   "hweight": "516(+8)",
+   "pop": "8",
+   "runners": 9
   }
  ]
 }
