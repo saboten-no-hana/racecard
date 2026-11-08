@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-08T12:33+09:00",
+ "updated": "2026-11-08T12:36+09:00",
  "days": [
   {
    "date": "2026-11-07",
@@ -4016,8 +4016,8 @@
    "jockey": "横山 典弘",
    "rtime": "2:03.9",
    "margin": "２ 1/2",
-   "corner": "",
-   "last3f": "",
+   "corner": "3-3-3",
+   "last3f": "33.7",
    "hweight": "446(初出走)",
    "pop": "3",
    "runners": 15
@@ -4045,8 +4045,8 @@
    "jockey": "C.ルメール",
    "rtime": "2:03.5",
    "margin": "１ 1/2",
-   "corner": "",
-   "last3f": "",
+   "corner": "1-1-1",
+   "last3f": "33.6",
    "hweight": "504(初出走)",
    "pop": "1",
    "runners": 15
@@ -4074,8 +4074,8 @@
    "jockey": "西村 淳也",
    "rtime": "2:06.0",
    "margin": "１／２",
-   "corner": "",
-   "last3f": "",
+   "corner": "10-11-11",
+   "last3f": "34.6",
    "hweight": "438(初出走)",
    "pop": "9",
    "runners": 15
