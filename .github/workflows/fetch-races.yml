@@ -33,13 +33,13 @@ jobs:
     timeout-minutes: 345   # 木曜は 13:45 起動〜18:30 まで待ち（285分）、そのあと全体の取得が続くことがある（GitHub の上限は360分）
     # 失敗（GitHub からメールが届く）になるのは: 出馬表トップの形式が読めない／木曜に週末の出馬表を取れなかった（年末年始を除く）
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 最新の main を取り込む
         # 待機していた実行（手動で取った後に順番が来た定期実行など）は、起動が登録された時点の古いコミットで
         # 動くため、古い data/ を見て同じ取得をやり直してしまう（10/22 に出馬表で起きた）。取得の前に最新にそろえる（10/26〜）
         if: github.ref == 'refs/heads/main'
         run: git fetch -q origin main && git reset -q --hard origin/main && git log --oneline -1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3
@@ -51,8 +51,10 @@ jobs:
       - name: 出馬表を取得
         env:
           RACECARD_PUSH_STATUS: ${{ github.ref == 'refs/heads/main' && '1' || '' }}
+          SCHED: ${{ github.event.schedule }}   # 定期実行の時刻・手動実行の入力は、シェルに直接埋め込まず環境変数で渡す（11/18〜。結果の取得と同じ）
+          MODE: ${{ inputs.mode }}
         run: |
-          case "${{ github.event.schedule }}${{ inputs.mode }}" in
+          case "$SCHED$MODE" in
             '45 4 * * *'|confirm)
               if [ "$(TZ=Asia/Tokyo date +%u)" = 4 ]; then W=18:30; else W=16:35; fi
               ARGS="--mode confirm --start 15:45 --until 18:30 --watch-until $W" ;;
