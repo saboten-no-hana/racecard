@@ -22,11 +22,11 @@ jobs:
     timeout-minutes: 30
     # 失敗（GitHub からメールが届く）になるのは: 入口・抹消日のページの形式が読めない／通信エラーで読めなかった
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: 最新の main を取り込む
         if: github.ref == 'refs/heads/main'
         run: git fetch -q origin main && git reset -q --hard origin/main && git log --oneline -1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - run: pip install beautifulsoup4==4.12.3

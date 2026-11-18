@@ -1,5 +1,6 @@
 name: テスト
-# 取得処理（tools/fetch_races.py）と画面のスクリプトの自動テスト。JRA にはアクセスしない（偽のページで動かす）。
+# 取得処理（tools/fetch_races.py など）と画面のスクリプトの自動テスト。JRA にはアクセスしない（偽のページで動かす）。
+# 公開ページ（出走カード・結果カード）を実際のブラウザで開き、エラーなく画像が出るかも確かめる（tools/test_pages.py、11/18〜）。
 # あわせて、コミットのメールアドレスが公開してよいものだけかを確かめる（tools/check_authors.py）。
 # 失敗すると GitHub からメールが届く。出馬表の更新コミット（data/ だけの変更）では動かない。
 on:
@@ -12,16 +13,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: コミットのメールアドレスの確認
         run: python3 tools/check_authors.py
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      - run: pip install beautifulsoup4==4.12.3 numpy zxing-cpp
+      - run: pip install beautifulsoup4==4.12.3 numpy zxing-cpp playwright==1.63.0
+      # 公開ページをブラウザで開くテスト（tools/test_pages.py、11/18〜）用の Chromium（画面なしの版だけ）
+      - run: python3 -m playwright install --only-shell chromium
       - run: python3 -m unittest discover -v -s tools -p 'test_*.py'
+        env:
+          RACECARD_REQUIRE_BROWSER: '1'   # ブラウザがない時に飛ばさず失敗にする
