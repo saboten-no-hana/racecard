@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-21T11:03+09:00",
+ "updated": "2026-11-21T11:18+09:00",
  "days": [
   {
    "date": "2026-11-21",
@@ -271,6 +271,35 @@
    "hweight": "492(0)",
    "pop": "1",
    "runners": 13
+  },
+  {
+   "key": "2026-11-21|京都|3|2024100255",
+   "horseId": "2024100255",
+   "name": "アルテクィーン",
+   "clubId": "normandy",
+   "date": "2026-11-21",
+   "venue": "京都",
+   "r": 3,
+   "time": "11:00",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "芝",
+   "dist": 1200,
+   "status": "",
+   "finish": "5",
+   "waku": "4",
+   "umaban": "8",
+   "sexAge": "牝2",
+   "weight": "55.0",
+   "jockey": "松山 弘平",
+   "rtime": "1:09.4",
+   "margin": "クビ",
+   "corner": "2-2",
+   "last3f": "34.7",
+   "hweight": "478(+16)",
+   "pop": "2",
+   "runners": 18
   }
  ]
 }
