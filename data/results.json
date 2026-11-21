@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-21T13:58+09:00",
+ "updated": "2026-11-21T14:01+09:00",
  "days": [
   {
    "date": "2026-11-21",
@@ -556,8 +556,8 @@
    "jockey": "◇ 永島 まなみ",
    "rtime": "2:04.2",
    "margin": "クビ",
-   "corner": "",
-   "last3f": "",
+   "corner": "2-3-1-1",
+   "last3f": "37.7",
    "hweight": "470(-4)",
    "pop": "8",
    "runners": 16
@@ -585,8 +585,8 @@
    "jockey": "小沢 大仁",
    "rtime": "2:04.3",
    "margin": "クビ",
-   "corner": "",
-   "last3f": "",
+   "corner": "15-16-2-2",
+   "last3f": "37.7",
    "hweight": "414(-14)",
    "pop": "14",
    "runners": 16
@@ -614,8 +614,8 @@
    "jockey": "丹内 祐次",
    "rtime": "2:08.5",
    "margin": "大差",
-   "corner": "",
-   "last3f": "",
+   "corner": "2-2-2-9",
+   "last3f": "41.9",
    "hweight": "480(+8)",
    "pop": "10",
    "runners": 16
@@ -643,8 +643,8 @@
    "jockey": "斎藤 新",
    "rtime": "2:04.0",
    "margin": "",
-   "corner": "",
-   "last3f": "",
+   "corner": "5-5-5-2",
+   "last3f": "37.2",
    "hweight": "438(-12)",
    "pop": "4",
    "runners": 16
