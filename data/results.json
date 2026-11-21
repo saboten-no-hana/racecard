@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-21T15:38+09:00",
+ "updated": "2026-11-21T15:44+09:00",
  "days": [
   {
    "date": "2026-11-21",
@@ -875,8 +875,8 @@
    "jockey": "小沢 大仁",
    "rtime": "2:04.4",
    "margin": "クビ",
-   "corner": "",
-   "last3f": "",
+   "corner": "5-3-4-6",
+   "last3f": "37.4",
    "hweight": "460(+2)",
    "pop": "9",
    "runners": 16
@@ -904,8 +904,8 @@
    "jockey": "A.プーシャン",
    "rtime": "2:04.6",
    "margin": "１ 1/4",
-   "corner": "",
-   "last3f": "",
+   "corner": "9-11-11-6",
+   "last3f": "37.2",
    "hweight": "462(0)",
    "pop": "6",
    "runners": 16
@@ -933,8 +933,8 @@
    "jockey": "津村 明秀",
    "rtime": "2:03.6",
    "margin": "１／２",
-   "corner": "",
-   "last3f": "",
+   "corner": "8-6-9-10",
+   "last3f": "36.3",
    "hweight": "474(+6)",
    "pop": "4",
    "runners": 16
@@ -962,8 +962,8 @@
    "jockey": "戸崎 圭太",
    "rtime": "2:03.2",
    "margin": "",
-   "corner": "",
-   "last3f": "",
+   "corner": "6-6-4-2",
+   "last3f": "36.1",
    "hweight": "456(-2)",
    "pop": "1",
    "runners": 16
@@ -991,8 +991,8 @@
    "jockey": "T.マーカンド",
    "rtime": "2:03.8",
    "margin": "１／２",
-   "corner": "",
-   "last3f": "",
+   "corner": "4-5-4-6",
+   "last3f": "36.7",
    "hweight": "450(+6)",
    "pop": "2",
    "runners": 16
