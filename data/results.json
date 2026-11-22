@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-22T13:31+09:00",
+ "updated": "2026-11-22T13:43+09:00",
  "days": [
   {
    "date": "2026-11-21",
@@ -2656,6 +2656,35 @@
    "hweight": "442(-4)",
    "pop": "14",
    "runners": 16
+  },
+  {
+   "key": "2026-11-22|京都|7|2022106940",
+   "horseId": "2022106940",
+   "name": "ローレルオーブ",
+   "clubId": "laurel",
+   "date": "2026-11-22",
+   "venue": "京都",
+   "r": 7,
+   "time": "13:25",
+   "raceName": "3歳以上1勝クラス",
+   "grade": "",
+   "cls": "1勝クラス",
+   "surface": "芝",
+   "dist": 2400,
+   "status": "",
+   "finish": "3",
+   "waku": "1",
+   "umaban": "2",
+   "sexAge": "牡4",
+   "weight": "58.0",
+   "jockey": "J.モレイラ",
+   "rtime": "",
+   "margin": "クビ",
+   "corner": "9-10-7-8",
+   "last3f": "",
+   "hweight": "476(-2)",
+   "pop": "7",
+   "runners": 5
   }
  ]
 }
