@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-22T16:38+09:00",
+ "updated": "2026-11-23T10:03+09:00",
  "days": [
   {
    "date": "2026-11-21",
@@ -14,6 +14,13 @@
    "venues": [
     "東京",
     "京都"
+   ]
+  },
+  {
+   "date": "2026-11-23",
+   "venues": [
+    "東京",
+    "福島"
    ]
   }
  ],
@@ -3816,6 +3823,93 @@
    "hweight": "450(+6)",
    "pop": "1",
    "runners": 13
+  },
+  {
+   "key": "2026-11-23|福島|1|2024101054",
+   "horseId": "2024101054",
+   "name": "イリスロッソ",
+   "clubId": "union",
+   "date": "2026-11-23",
+   "venue": "福島",
+   "r": 1,
+   "time": "09:45",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1150,
+   "status": "",
+   "finish": "8",
+   "waku": "6",
+   "umaban": "12",
+   "sexAge": "牝2",
+   "weight": "55.0",
+   "jockey": "西村 淳也",
+   "rtime": "1:09.8",
+   "margin": "アタマ",
+   "corner": "1-1",
+   "last3f": "38.7",
+   "hweight": "440(-4)",
+   "pop": "1",
+   "runners": 16
+  },
+  {
+   "key": "2026-11-23|福島|1|2024104106",
+   "horseId": "2024104106",
+   "name": "ブレイズリー",
+   "clubId": "normandy",
+   "date": "2026-11-23",
+   "venue": "福島",
+   "r": 1,
+   "time": "09:45",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1150,
+   "status": "",
+   "finish": "中止",
+   "waku": "1",
+   "umaban": "2",
+   "sexAge": "牡2",
+   "weight": "53.0",
+   "jockey": "▲ 和田 陽希",
+   "rtime": "",
+   "margin": "",
+   "corner": "-",
+   "last3f": "",
+   "hweight": "502(-2)",
+   "pop": "12",
+   "runners": 16
+  },
+  {
+   "key": "2026-11-23|福島|1|2024105970",
+   "horseId": "2024105970",
+   "name": "アルビオンライズ",
+   "clubId": "shadai",
+   "date": "2026-11-23",
+   "venue": "福島",
+   "r": 1,
+   "time": "09:45",
+   "raceName": "2歳未勝利",
+   "grade": "",
+   "cls": "未勝利",
+   "surface": "ダ",
+   "dist": 1150,
+   "status": "",
+   "finish": "9",
+   "waku": "7",
+   "umaban": "13",
+   "sexAge": "牡2",
+   "weight": "54.0",
+   "jockey": "◇ 小林 美駒",
+   "rtime": "1:09.9",
+   "margin": "３／４",
+   "corner": "3-3",
+   "last3f": "38.4",
+   "hweight": "490(+2)",
+   "pop": "4",
+   "runners": 16
   }
  ]
 }
