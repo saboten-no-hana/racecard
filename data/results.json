@@ -1,6 +1,6 @@
 {
  "source": "JRAホームページ レース結果",
- "updated": "2026-11-28T16:19+09:00",
+ "updated": "2026-11-28T16:22+09:00",
  "days": [
   {
    "date": "2026-11-28",
@@ -1078,8 +1078,8 @@
    "jockey": "上野 翔",
    "rtime": "2:27.7",
    "margin": "３／４",
-   "corner": "",
-   "last3f": "",
+   "corner": "15-15-15-15",
+   "last3f": "34.5",
    "hweight": "474(-6)",
    "pop": "11",
    "runners": 18
@@ -1107,8 +1107,8 @@
    "jockey": "津村 明秀",
    "rtime": "2:28.2",
    "margin": "１／２",
-   "corner": "",
-   "last3f": "",
+   "corner": "2-2-3-3",
+   "last3f": "36.0",
    "hweight": "468(+18)",
    "pop": "13",
    "runners": 18
@@ -1136,8 +1136,8 @@
    "jockey": "丹内 祐次",
    "rtime": "2:27.0",
    "margin": "１ 1/2",
-   "corner": "",
-   "last3f": "",
+   "corner": "11-10-9-10",
+   "last3f": "34.3",
    "hweight": "450(-2)",
    "pop": "7",
    "runners": 18
@@ -1165,8 +1165,8 @@
    "jockey": "R.ムーア",
    "rtime": "2:26.4",
    "margin": "",
-   "corner": "",
-   "last3f": "",
+   "corner": "6-6-5-3",
+   "last3f": "34.2",
    "hweight": "470(+10)",
    "pop": "1",
    "runners": 18
@@ -1194,8 +1194,8 @@
    "jockey": "佐々木 大輔",
    "rtime": "2:28.2",
    "margin": "クビ",
-   "corner": "",
-   "last3f": "",
+   "corner": "7-6-7-8",
+   "last3f": "35.6",
    "hweight": "500(+4)",
    "pop": "17",
    "runners": 18
@@ -1223,8 +1223,8 @@
    "jockey": "W.ビュイック",
    "rtime": "2:26.4",
    "margin": "クビ",
-   "corner": "",
-   "last3f": "",
+   "corner": "3-4-3-5",
+   "last3f": "34.1",
    "hweight": "504(+2)",
    "pop": "3",
    "runners": 18
@@ -1252,8 +1252,8 @@
    "jockey": "C.ルメール",
    "rtime": "2:27.5",
    "margin": "１ 1/4",
-   "corner": "",
-   "last3f": "",
+   "corner": "1-1-1-1",
+   "last3f": "35.6",
    "hweight": "506(0)",
    "pop": "2",
    "runners": 18
